@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "herrinchoker",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "3838"],
+      "port": 3838
+    }
+  ]
+}
