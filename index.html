@@ -7,227 +7,195 @@
 <title>Herrin Choker Racing — #38</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700;1,900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-<div class="top-stripe"><div class="s1"></div><div class="s2"></div><div class="s3"></div></div>
+<div class="flash"><i class="a"></i><i class="b"></i><i class="c"></i></div>
 
 <nav>
-  <div class="nav-inner">
-    <a href="#" class="nav-logo">Herrin Choker <span>Racing</span></a>
+  <div class="nav-in">
+    <a href="#" class="logo">Herrin <b>Choker</b> Racing</a>
     <ul class="nav-links">
       <li><a href="#schedule">Schedule</a></li>
-      <li><a href="#photos">Photos</a></li>
-      <li><a href="#videos">Videos</a></li>
+      <li><a href="#media">Media</a></li>
       <li><a href="#driver">Driver</a></li>
-      <li><a href="#follow">Follow Us</a></li>
+      <li><a href="#follow">Follow</a></li>
     </ul>
-    <button class="nav-burger" aria-label="Menu" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
+    <div class="nav-right">
+      <a href="#follow" class="nav-cta">Follow #38</a>
+      <button class="nav-burger" aria-label="Menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
   </div>
 </nav>
 
 <!-- HERO -->
-<div class="hero">
-  <div class="hero-bg"></div>
-  <div class="hero-bg-overlay"></div>
-  <div class="hero-content container">
-    <div style="display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:center;">
-      <div>
-        <p class="hero-eyebrow">Hydroplane Racing League · F2500 Class</p>
-        <p class="hero-num">#38</p>
-        <h1 class="hero-title">Herrin Choker Racing</h1>
-        <div class="hero-meta">
-          <span class="pill pill-gold">F2500 Class</span>
-          <span class="pill pill-white">HRL</span>
-          <span class="pill pill-white">Driver: Adam Carruthers</span>
-        </div>
-      </div>
-      <div style="width:clamp(180px,30vw,380px);border-radius:6px;overflow:hidden;border:2px solid rgba(139,26,26,0.6);flex-shrink:0;">
-        <img src="images/photo2.jpg" alt="Boat #38 Herrin Choker Racing" style="width:100%;height:auto;object-fit:contain;display:block;">
-      </div>
+<header class="hero" data-screen-label="Hero">
+  <div class="hero-img"></div>
+  <div class="hero-num cond">38</div>
+  <div class="hero-in">
+    <p class="eyebrow">Hydroplane Racing League · F2500 Class</p>
+    <h1 class="hero-title cond">Herrin Choker<br><span class="l2">Racing</span></h1>
+    <div class="hero-tags">
+      <span class="tag g">Boat #38</span>
+      <span class="tag w">F2500 Class</span>
+      <span class="tag w">Driver · Adam Carruthers</span>
     </div>
+  </div>
+  <span class="credit">Photo · Kevin Lennie 2025</span>
+</header>
+
+<!-- NEXT RACE BAR — populated by js/main.js from the schedule below -->
+<div class="nextbar" hidden>
+  <div class="nextbar-in">
+    <span class="lbl">Race Weekend</span>
+    <span class="race cond" data-nextbar="race"></span>
+    <span class="when cond" data-nextbar="when"></span>
+    <span class="live"><span class="dot"></span><span data-nextbar="status">Live Now</span></span>
   </div>
 </div>
 
 <!-- SCHEDULE -->
-<section id="schedule">
-  <div class="container">
-    <div class="section-header">
-      <span class="section-label">2026 season</span>
-      <div class="section-line"></div>
+<section id="schedule" data-screen-label="Schedule">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="sec-kicker">2026 Season</div>
+        <h2 class="sec-title cond">Race Schedule</h2>
+      </div>
+      <a href="https://hrlhydroplane.com/en/calendrier/" target="_blank" class="sec-link">Full HRL Calendar →</a>
     </div>
-    <h2 class="section-title">Race Schedule</h2>
-    <div class="schedule-list">
-
-      <div class="race-row" data-start="2026-05-23" data-end="2026-05-24">
-        <span class="race-num">1</span>
-        <span class="race-dates">May 23–24</span>
-        <div class="race-location">
-          <div class="race-city">Cambridge, MD</div>
-          <div class="race-region">USA</div>
-        </div>
-        <span class="race-badge badge-past">Complete</span>
+    <div class="sched">
+      <div class="row" data-start="2026-05-23" data-end="2026-05-24" data-city="Cambridge, MD" data-region="United States">
+        <span class="rnum cond">01</span>
+        <span class="rdate cond">May 23–24</span>
+        <div><div class="rcity cond">Cambridge, MD</div><div class="rregion">United States</div></div>
+        <span class="rbadge b-done">Complete</span>
       </div>
-
-      <div class="race-row next-up" data-start="2026-06-06" data-end="2026-06-07">
-        <span class="race-num">2</span>
-        <span class="race-dates">June 6–7</span>
-        <div class="race-location">
-          <div class="race-city">Sorel-Tracy, QC</div>
-          <div class="race-region">Canada</div>
-        </div>
-        <span class="race-badge badge-next">Race Day</span>
+      <div class="row" data-start="2026-06-06" data-end="2026-06-07" data-city="Sorel-Tracy Grand Prix" data-region="Québec, Canada">
+        <span class="rnum cond">02</span>
+        <span class="rdate cond">June 6–7</span>
+        <div><div class="rcity cond">Sorel-Tracy, QC</div><div class="rregion">Canada</div></div>
+        <span class="rbadge b-up">Upcoming</span>
       </div>
-
-      <div class="race-row" data-start="2026-06-27" data-end="2026-06-28">
-        <span class="race-num">3</span>
-        <span class="race-dates">June 27–28</span>
-        <div class="race-location">
-          <div class="race-city">Brockville, ON</div>
-          <div class="race-region">Canada</div>
-        </div>
-        <span class="race-badge badge-upcoming">Upcoming</span>
+      <div class="row" data-start="2026-06-27" data-end="2026-06-28" data-city="Brockville, ON" data-region="Canada">
+        <span class="rnum cond">03</span>
+        <span class="rdate cond">June 27–28</span>
+        <div><div class="rcity cond">Brockville, ON</div><div class="rregion">Canada</div></div>
+        <span class="rbadge b-up">Upcoming</span>
       </div>
-
-      <div class="race-row" data-start="2026-07-10" data-end="2026-07-12">
-        <span class="race-num">4</span>
-        <span class="race-dates">July 10–12</span>
-        <div class="race-location">
-          <div class="race-city">Valleyfield, QC</div>
-          <div class="race-region">Canada</div>
-        </div>
-        <span class="race-badge badge-upcoming">Upcoming</span>
+      <div class="row" data-start="2026-07-10" data-end="2026-07-12" data-city="Valleyfield, QC" data-region="Canada">
+        <span class="rnum cond">04</span>
+        <span class="rdate cond">July 10–12</span>
+        <div><div class="rcity cond">Valleyfield, QC</div><div class="rregion">Canada</div></div>
+        <span class="rbadge b-up">Upcoming</span>
       </div>
-
-      <div class="race-row" data-start="2026-08-01" data-end="2026-08-02">
-        <span class="race-num">5</span>
-        <span class="race-dates">Aug 1–2</span>
-        <div class="race-location">
-          <div class="race-city">North Tonawanda, NY</div>
-          <div class="race-region">USA</div>
-        </div>
-        <span class="race-badge badge-upcoming">Upcoming</span>
+      <div class="row" data-start="2026-08-01" data-end="2026-08-02" data-city="North Tonawanda, NY" data-region="United States">
+        <span class="rnum cond">05</span>
+        <span class="rdate cond">Aug 1–2</span>
+        <div><div class="rcity cond">North Tonawanda, NY</div><div class="rregion">United States</div></div>
+        <span class="rbadge b-up">Upcoming</span>
       </div>
-
-      <div class="race-row" data-start="2026-08-22" data-end="2026-08-23">
-        <span class="race-num">6</span>
-        <span class="race-dates">Aug 22–23</span>
-        <div class="race-location">
-          <div class="race-city">Beauharnois, QC</div>
-          <div class="race-region">Canada</div>
-        </div>
-        <span class="race-badge badge-upcoming">Upcoming</span>
-      </div>
-
-    </div>
-    <p style="font-size:11px;color:var(--muted);margin-top:0.75rem;">* Schedule subject to change. Visit <a href="https://hrlhydroplane.com/en/calendrier/" target="_blank" style="color:var(--gold);text-decoration:none;">hrlhydroplane.com</a> for updates.</p>
-  </div>
-</section>
-
-<!-- PHOTOS -->
-<section id="photos">
-  <div class="container">
-    <div class="section-header">
-      <span class="section-label">on the water</span>
-      <div class="section-line"></div>
-    </div>
-    <h2 class="section-title">Photos</h2>
-    <div class="photo-grid">
-      <div class="photo-cell photo-cell-main">
-        <img src="images/photo1.jpg" alt="Boat #38 Herrin Choker Racing in action"/>
-        <span class="photo-credit">Kevin Lennie 2025</span>
-      </div>
-      <div class="photo-stack">
-        <div class="photo-cell">
-          <img src="images/photo2.jpg" alt="Boat #38 rounding the buoy"/>
-        </div>
-        <div class="photo-cell">
-          <span class="photo-placeholder">Add photo</span>
-        </div>
+      <div class="row" data-start="2026-08-22" data-end="2026-08-23" data-city="Beauharnois, QC" data-region="Canada">
+        <span class="rnum cond">06</span>
+        <span class="rdate cond">Aug 22–23</span>
+        <div><div class="rcity cond">Beauharnois, QC</div><div class="rregion">Canada</div></div>
+        <span class="rbadge b-up">Upcoming</span>
       </div>
     </div>
   </div>
 </section>
 
-<!-- VIDEOS -->
-<section id="videos">
-  <div class="container">
-    <div class="section-header">
-      <span class="section-label">HRL YouTube</span>
-      <div class="section-line"></div>
-    </div>
-    <h2 class="section-title">Videos</h2>
-    <div class="video-grid">
-      <div class="video-embed">
-        <iframe src="https://www.youtube.com/embed/cHhYoKfPl_M" title="HRL 2025 Recap Régates de Valleyfield" allowfullscreen loading="lazy"></iframe>
+<!-- MEDIA -->
+<section id="media" style="background:var(--ink);" data-screen-label="Media">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="sec-kicker">On The Water</div>
+        <h2 class="sec-title cond">Photos &amp; Video</h2>
       </div>
-      <div class="video-embed">
-        <iframe src="https://www.youtube.com/embed/I7REflkUfHI" title="HRL 2025 Highlights" allowfullscreen loading="lazy"></iframe>
+      <a href="https://www.youtube.com/@HydroplaneRacingLeague" target="_blank" class="sec-link">HRL YouTube →</a>
+    </div>
+    <div class="media-grid">
+      <div class="frame big">
+        <img src="images/photo1.jpg" alt="Boat #38 racing">
+      </div>
+      <div class="stack">
+        <div class="frame sm"><img src="images/photo2.jpg" alt="Boat #38 airborne"></div>
+        <div class="frame sm"><div class="ph">Add Photo</div></div>
       </div>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin-top:1rem;">More videos on the <a href="https://www.youtube.com/@HydroplaneRacingLeague" target="_blank" style="color:var(--gold);text-decoration:none;">HRL YouTube channel →</a></p>
+    <div class="vids">
+      <div class="vid"><iframe src="https://www.youtube.com/embed/cHhYoKfPl_M" title="HRL 2025 Recap" allowfullscreen loading="lazy"></iframe></div>
+      <div class="vid"><iframe src="https://www.youtube.com/embed/I7REflkUfHI" title="HRL 2025 Highlights" allowfullscreen loading="lazy"></iframe></div>
+    </div>
   </div>
 </section>
 
 <!-- DRIVER -->
-<section id="driver">
-  <div class="container">
-    <div class="section-header">
-      <span class="section-label">behind the wheel</span>
-      <div class="section-line"></div>
-    </div>
-    <h2 class="section-title">Driver</h2>
-    <div class="driver-card">
-      <div class="driver-avatar"><img src="images/Adam-Carruthers.png" alt="Adam Carruthers" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;"></div>
+<section id="driver" data-screen-label="Driver">
+  <div class="wrap">
+    <div class="sec-head">
       <div>
-        <div class="driver-name">Adam Carruthers</div>
-        <div class="driver-detail">F2500 Class · Herrin Choker Racing #38 · HRL</div>
-        <a href="https://hrlhydroplane.com/en/les-pilotes/adam-carruthers/" target="_blank" class="driver-link">HRL Driver Profile →</a>
+        <div class="sec-kicker">Behind The Wheel</div>
+        <h2 class="sec-title cond">The Driver</h2>
+      </div>
+    </div>
+    <div class="driver">
+      <div class="driver-photo"><img src="images/Adam-Carruthers.png" alt="Adam Carruthers"></div>
+      <div class="driver-info">
+        <div class="dk">Pilot · Boat #38</div>
+        <div class="dn cond">Adam Carruthers</div>
+        <p>Racing the F2500 class in the Hydroplane Racing League. Behind the wheel of the #38 Herrin Choker hydroplane, chasing the next checkered flag across Canada and the northeastern U.S.</p>
+        <a href="https://hrlhydroplane.com/en/les-pilotes/adam-carruthers/" target="_blank" class="dlink">HRL Driver Profile →</a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- SOCIAL -->
-<section id="follow">
-  <div class="container">
-    <div class="section-header">
-      <span class="section-label">stay connected</span>
-      <div class="section-line"></div>
-    </div>
-    <h2 class="section-title">Follow the Team</h2>
-    <div class="social-grid">
-      <a href="https://www.facebook.com/groups/2176776669021688" target="_blank" class="social-card fb">
-        <div class="social-icon fb">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#1877f2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+<!-- FOLLOW + SPONSORS -->
+<section id="follow" style="background:var(--ink);" data-screen-label="Follow">
+  <div class="wrap">
+    <div class="split">
+      <div>
+        <div class="sec-kicker">Stay Connected</div>
+        <h2 class="sec-title cond" style="margin-bottom:24px;">Follow The Team</h2>
+        <div class="social-cards">
+          <a href="https://www.facebook.com/groups/2176776669021688" target="_blank" class="scard">
+            <span class="sico"><svg width="22" height="22" viewBox="0 0 24 24" fill="#f0c860"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></span>
+            <div><div class="sname">Facebook</div><div class="scta">Join our private group</div></div>
+          </a>
+          <a href="https://www.instagram.com/herrinchokerracing/" target="_blank" class="scard">
+            <span class="sico"><svg width="22" height="22" viewBox="0 0 24 24" fill="#f0c860"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg></span>
+            <div><div class="sname">Instagram</div><div class="scta">@herrinchokerracing</div></div>
+          </a>
         </div>
-        <div>
-          <div class="social-name">Facebook</div>
-          <div class="social-cta">Join our private group</div>
+      </div>
+      <div>
+        <div class="sec-kicker">Partners</div>
+        <h2 class="sec-title cond" style="margin-bottom:24px;">Sponsors</h2>
+        <div class="sponsor-box">
+          <div class="sk">Proud Partners of #38</div>
+          <div class="sponsor-slots">
+            <div class="slot">Your Logo</div>
+            <div class="slot">Your Logo</div>
+            <div class="slot">Your Logo</div>
+          </div>
+          <p class="sp-note">Want your brand on the boat? <a href="#follow">Get in touch →</a></p>
         </div>
-      </a>
-      <a href="https://www.instagram.com/herrinchokerracing/" target="_blank" class="social-card ig">
-        <div class="social-icon ig">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#c13584"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-        </div>
-        <div>
-          <div class="social-name">Instagram</div>
-          <div class="social-cta">Follow for behind-the-scenes</div>
-        </div>
-      </a>
+      </div>
     </div>
   </div>
 </section>
 
 <footer>
-  <div class="footer-inner">
-    <div class="footer-logo">Herrin Choker <span>Racing</span> &nbsp;·&nbsp; #38</div>
-    <div class="footer-hrl">Part of the <a href="https://hrlhydroplane.com/en/" target="_blank">Hydroplane Racing League</a></div>
-    <div class="footer-credit">© 2026 Herrin Choker Racing</div>
+  <div class="wrap foot">
+    <div class="fl cond">Herrin <b>Choker</b> Racing · #38</div>
+    <div class="fm">Part of the <a href="https://hrlhydroplane.com/en/" target="_blank">Hydroplane Racing League</a></div>
+    <div class="fm">© 2026 Herrin Choker Racing</div>
   </div>
 </footer>
 
