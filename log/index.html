@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>INFERNO Telemetry — Herrin Choker Racing #38</title>
 <link rel="stylesheet" href="vendor/uPlot.min.css">
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
+<script>document.documentElement.dataset.theme = localStorage.getItem('inferno-theme') || 'dark';</script>
 </head>
 <body>
 <header class="topbar">
@@ -14,6 +15,7 @@
     <div>INFERNO<br><small>Herrin Choker Racing · Telemetry</small></div>
   </div>
   <div class="spacer"></div>
+  <button class="ghost-btn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">☀</button>
   <button class="ghost-btn" id="homeBtn">⌂ Home</button>
   <button class="ghost-btn" id="publishBtn">⇪ Publish</button>
   <button class="ghost-btn" id="exportBtn">⤓ Export PDF</button>
@@ -47,13 +49,13 @@
 <input type="file" id="fileInput" accept=".llgx" multiple hidden>
 
 <script src="vendor/uPlot.iife.min.js"></script>
-<script src="zip.js?v=4"></script>
-<script src="db.js?v=4"></script>
-<script src="history.js?v=4"></script>
-<script src="llgx.js?v=4"></script>
-<script src="analysis.js?v=4"></script>
-<script src="charts.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="zip.js?v=5"></script>
+<script src="db.js?v=5"></script>
+<script src="history.js?v=5"></script>
+<script src="llgx.js?v=5"></script>
+<script src="analysis.js?v=5"></script>
+<script src="charts.js?v=5"></script>
+<script src="app.js?v=5"></script>
 <script>document.getElementById('openBtn').onclick=()=>document.getElementById('fileInput').click();</script>
 </body>
 </html>

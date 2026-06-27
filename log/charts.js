@@ -40,7 +40,7 @@
           if (band && band[1] > band[0]) {
             const x0 = u.valToPos(band[0], "x", true), x1 = u.valToPos(band[1], "x", true);
             ctx.save();
-            ctx.fillStyle = "rgba(160,160,170,0.07)";
+            ctx.fillStyle = cssVar("--chart-shade", "rgba(160,160,170,0.07)");
             ctx.fillRect(x0, u.bbox.top, x1 - x0, u.bbox.height);
             ctx.restore();
           }
@@ -123,6 +123,12 @@
   let syncing = false;
   const CH_H = 172;   // chart plot height (px)
 
+  // read a CSS custom property (so charts follow the light/dark theme)
+  function cssVar(name, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+
   function build(log, seg, container) {
     container.innerHTML = "";
     charts.length = 0;
@@ -182,9 +188,9 @@
         scales: { x: { time: false }, y: { range: [lo - pad, hi + pad] } },
         legend: { show: false },
         axes: [
-          { stroke: "#64748b", grid: { stroke: "rgba(148,163,184,0.08)" }, ticks: { stroke: "rgba(148,163,184,0.15)" },
+          { stroke: cssVar("--chart-axis", "#64748b"), grid: { stroke: cssVar("--chart-grid", "rgba(148,163,184,0.08)") }, ticks: { stroke: cssVar("--chart-grid", "rgba(148,163,184,0.15)") },
             values: (u, vals) => vals.map(v => v + "s"), font: "11px system-ui" },
-          { stroke: "#64748b", grid: { stroke: "rgba(148,163,184,0.06)" }, ticks: { show: false }, size: 52, font: "11px system-ui" },
+          { stroke: cssVar("--chart-axis", "#64748b"), grid: { stroke: cssVar("--chart-grid", "rgba(148,163,184,0.06)") }, ticks: { show: false }, size: 52, font: "11px system-ui" },
         ],
         series: [
           {},

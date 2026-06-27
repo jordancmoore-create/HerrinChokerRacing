@@ -238,6 +238,19 @@
   $("#openBtn").addEventListener("click", () => fileInput.click());
   $("#homeBtn").addEventListener("click", () => { home = true; render(); });
 
+  // theme (light / dark) — attribute is pre-set in <head> to avoid a flash
+  function applyTheme(t) {
+    document.documentElement.dataset.theme = t;
+    const b = $("#themeBtn"); if (b) b.textContent = t === "light" ? "🌙" : "☀";
+  }
+  applyTheme(localStorage.getItem("inferno-theme") || "dark");
+  $("#themeBtn").addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    localStorage.setItem("inferno-theme", next);
+    applyTheme(next);
+    if (active >= 0 && !home) render();   // rebuild charts so canvas colors follow the theme
+  });
+
   $("#exportBtn").addEventListener("click", () => {
     if (active < 0 || home) { toast("Open a log first"); return; }
     window.print();
