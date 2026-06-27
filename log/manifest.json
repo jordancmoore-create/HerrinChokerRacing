@@ -1,0 +1,25 @@
+{
+  "generated": 1782580682701,
+  "team": "Herrin Choker Racing #38 · INFERNO",
+  "logs": [
+    {
+      "id": "ECU Internal Datalog - 2026-06-27 12;06;00__302319",
+      "name": "ECU Log 2026-06-27 12_06_00.llgx",
+      "title": "ECU Internal Datalog - 2026-06-27 12;06;00",
+      "ecu": "G4X Monsoon",
+      "serial": "302319",
+      "duration": 484.12799072265625,
+      "channels": 33,
+      "logTime": 1782572760000,
+      "cls": { "group": "race", "event": "brockville", "day": "Sat", "heat": 1, "auto": true },
+      "note": "",
+      "stats": {
+        "durationMin": 8.068799845377605, "peakRpm": 8282, "peakIdc": 130.40000915527344,
+        "coolantAvg": 33.19335281177238, "coolantMax": 41.79999923706055, "minFuelPLoad": 90.30000305175781,
+        "vtecRpm": 3291, "vtecFault": false, "maxIgn": 35.900001525878906, "maxThrottle": 99.80000305175781,
+        "cornerAvg": 46.925000762939455, "cornerMin": 4.5, "voltMin": 10.585000038146973
+      },
+      "file": "logs/ECU_Internal_Datalog_-_2026-06-27_12_06_00__302319.llgx"
+    }
+  ]
+}
