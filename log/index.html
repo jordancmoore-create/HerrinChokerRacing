@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>INFERNO Telemetry — Herrin Choker Racing #38</title>
+<link rel="stylesheet" href="vendor/uPlot.min.css">
+<link rel="stylesheet" href="styles.css?v=4">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">38</span>
+    <div>INFERNO<br><small>Herrin Choker Racing · Telemetry</small></div>
+  </div>
+  <div class="spacer"></div>
+  <button class="ghost-btn" id="homeBtn">⌂ Home</button>
+  <button class="ghost-btn" id="publishBtn">⇪ Publish</button>
+  <button class="ghost-btn" id="exportBtn">⤓ Export PDF</button>
+  <button class="ghost-btn" id="openBtn">Open log…</button>
+</header>
+
+<main>
+  <div id="landing">
+    <div class="dropzone" id="dropzone">
+      <div class="icon">📈</div>
+      <div class="big">Drop your ECU log files here</div>
+      <div class="sub">.llgx files from PCLink — drag in one or many. Everything runs &amp; saves locally.</div>
+    </div>
+    <section class="history" id="history"></section>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div id="dashboard">
+    <section class="session" id="session">
+      <h1 id="sessionTitle"></h1>
+      <div class="chips" id="chips"></div>
+      <div class="timeline" id="timeline"></div>
+    </section>
+    <section class="kpi-grid" id="kpis"></section>
+    <section class="flags" id="flags"></section>
+    <section class="charts" id="charts"></section>
+  </div>
+</main>
+
+<input type="file" id="fileInput" accept=".llgx" multiple hidden>
+
+<script src="vendor/uPlot.iife.min.js"></script>
+<script src="zip.js?v=4"></script>
+<script src="db.js?v=4"></script>
+<script src="history.js?v=4"></script>
+<script src="llgx.js?v=4"></script>
+<script src="analysis.js?v=4"></script>
+<script src="charts.js?v=4"></script>
+<script src="app.js?v=4"></script>
+<script>document.getElementById('openBtn').onclick=()=>document.getElementById('fileInput').click();</script>
+</body>
+</html>
