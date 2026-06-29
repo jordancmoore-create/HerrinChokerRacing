@@ -141,13 +141,40 @@
   let syncing = false;
   const CH_H = 172;   // chart plot height (px)
 
+  // "Show all channels" toggle — curated key channels by default, every
+  // logged channel on demand. Persisted so it sticks across logs.
+  let showAll = localStorage.getItem("show-all-channels") === "1";
+  let lastBuild = null;
+  const PALETTE = ["#38bdf8", "#34d399", "#f87171", "#c084fc", "#22d3ee",
+    "#fbbf24", "#a3e635", "#fb7185", "#818cf8", "#2dd4bf", "#f472b6",
+    "#facc15", "#60a5fa", "#4ade80", "#fca5a5", "#e879f9", "#67e8f9",
+    "#fde047", "#bef264", "#fda4af", "#93c5fd", "#86efac", "#d8b4fe"];
+
   // read a CSS custom property (so charts follow the light/dark theme)
   function cssVar(name, fallback) {
     const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     return v || fallback;
   }
 
+  // Toolbar above the charts: channel count + show-all toggle.
+  function renderToolbar(container, total) {
+    const bar = document.createElement("div");
+    bar.className = "charts-bar";
+    bar.innerHTML = `<span class="charts-count">${showAll
+      ? `Showing all ${total} logged channels`
+      : `Showing key channels · ${total} captured`}</span>
+      <button class="chan-toggle" type="button">${showAll
+        ? "Show key channels" : `Show all ${total} channels`}</button>`;
+    container.appendChild(bar);
+    bar.querySelector(".chan-toggle").addEventListener("click", () => {
+      showAll = !showAll;
+      localStorage.setItem("show-all-channels", showAll ? "1" : "0");
+      if (lastBuild) build(lastBuild.log, lastBuild.seg, lastBuild.container);
+    });
+  }
+
   function build(log, seg, container) {
+    lastBuild = { log, seg, container };
     container.innerHTML = "";
     charts.length = 0;
     const dur = log.duration || 1;
@@ -159,12 +186,38 @@
     const sync = uPlot.sync("telemetry");
     const band = [seg.raceStart, seg.raceEnd];
 
-    PLOT.forEach(spec => {
-      const ch = log.channel(spec.name);
+    // Resolve the curated channels first, tracking which log channels they
+    // consumed so "show all" doesn't double-plot the same channel.
+    const used = new Set();
+    const specs = [];
+    PLOT.forEach(s => {
+      const ch = log.channel(s.name);
+      if (ch) used.add(ch);
+      specs.push(Object.assign({}, s, { _ch: ch }));
+    });
+    if (showAll) {
+      let pi = 0, first = true;
+      for (const ch of log.channels) {
+        if (used.has(ch)) continue;
+        used.add(ch);
+        specs.push({ name: ch.name, color: PALETTE[pi++ % PALETTE.length], _ch: ch, _extra: first });
+        first = false;
+      }
+    }
+    renderToolbar(container, log.channels.length);
+
+    specs.forEach(spec => {
+      const ch = spec._ch;
       if (!ch || !ch.values.length) return;
+      if (spec._extra) {
+        const lbl = document.createElement("div");
+        lbl.className = "charts-divider";
+        lbl.textContent = "All other logged channels";
+        container.appendChild(lbl);
+      }
       let lo = Infinity, hi = -Infinity, sum = 0;
       for (const v of ch.values) { if (v < lo) lo = v; if (v > hi) hi = v; sum += v; }
-      if (lo === 0 && hi === 0) return;            // skip dead channels
+      if (lo === 0 && hi === 0 && !showAll) return; // skip flat-zero channels (key view only)
       const avg = sum / ch.values.length;
       const ys = interp(ch, grid);
 

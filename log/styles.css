@@ -179,6 +179,13 @@ body:not(.has-logs) .tabs{display:none}
 
 /* ---- charts ---- */
 .charts{display:grid;gap:12px}
+.charts-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:2px}
+.charts-count{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+.chan-toggle{margin-left:auto;cursor:pointer;color:var(--accent);background:transparent;
+  border:1px solid var(--panel-bd);border-radius:8px;padding:5px 12px;font-weight:600;font-size:12.5px}
+.chan-toggle:hover{border-color:var(--accent);background:rgba(var(--accent-rgb),.08)}
+.charts-divider{color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.6px;padding:8px 2px 0;border-top:1px solid var(--panel-bd);margin-top:4px}
 .chart-card{background:var(--panel);border:1px solid var(--panel-bd);border-radius:14px;padding:10px 12px 6px;box-shadow:var(--shadow)}
 .chart-head{display:flex;align-items:center;gap:9px;margin-bottom:4px}
 .chart-dot{width:9px;height:9px;border-radius:50%}
@@ -211,7 +218,7 @@ body:not(.has-logs) .tabs{display:none}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   html,body{background:var(--bg)!important}
   .topbar{position:static;backdrop-filter:none}
-  #openBtn,#exportBtn,.dropzone,.tabs,#toast,.spacer{display:none!important}
+  #openBtn,#exportBtn,.dropzone,.tabs,#toast,.spacer,.charts-bar{display:none!important}
   main{max-width:none;padding:8px 0 0}
   .kpi-grid{grid-template-columns:repeat(4,1fr)}
   .flags{grid-template-columns:1fr}
