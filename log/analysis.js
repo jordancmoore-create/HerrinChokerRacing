@@ -150,9 +150,17 @@
     if (fp) {
       const run = during(fp, t0, t1).filter(v => v > 50);
       if (run.length) {
-        const lo = min(run), base = median(run);
-        if (base && lo < base * 0.85)
-          concerns.push(["WATCH", `Fuel Pressure dipped to ${lo.toFixed(0)} kPa under load (median ${base.toFixed(0)}) — possible supply droop at high demand.`]);
+        const loKpa = min(run), hiKpa = max(run);
+        const [bLoKpa, bHiKpa] = Units.fuelBandKpa();
+        const u = Units.fuelLabel();
+        const [bLo, bHi] = Units.fuelBand();
+        const band = `${bLo.toFixed(0)}–${bHi.toFixed(0)} ${u}`;
+        if (loKpa < bLoKpa) {
+          const sev = loKpa < bLoKpa * 0.8 ? "CRITICAL" : "WATCH";
+          concerns.push([sev, `Fuel Pressure dropped to ${Units.fuelFromKpa(loKpa).toFixed(0)} ${u} under load — below the ${band} target band. Supply can't hold pressure at high demand.`]);
+        } else if (hiKpa > bHiKpa) {
+          concerns.push(["WATCH", `Fuel Pressure ran up to ${Units.fuelFromKpa(hiKpa).toFixed(0)} ${u} — above the ${band} target band.`]);
+        }
       }
     }
     const lam = C("Lambda 1") || C("Lambda");
@@ -223,7 +231,14 @@
     const idc = C("Injector Duty Cycle");
     if (idc) { const mx = max(idc.values); push("Peak Inj Duty", mx.toFixed(1), "%", mx >= 90 ? "crit" : mx >= 85 ? "warn" : "ok"); }
     const fp = C("Fuel Pressure");
-    if (fp) { const run = during(fp, seg.raceStart, seg.raceEnd).filter(v => v > 50); if (run.length) { const lo = min(run); push("Min Fuel P (load)", lo.toFixed(0), "kPa", lo < median(run) * 0.85 ? "warn" : "ok"); } }
+    if (fp) {
+      const run = during(fp, seg.raceStart, seg.raceEnd).filter(v => v > 50);
+      if (run.length) {
+        const loKpa = min(run), [bLoKpa] = Units.fuelBandKpa();
+        const sev = loKpa < bLoKpa * 0.8 ? "crit" : loKpa < bLoKpa ? "warn" : "ok";
+        push("Min Fuel P (load)", Units.fuelFromKpa(loKpa).toFixed(0), Units.fuelLabel(), sev);
+      }
+    }
     const er = ectRun(log);
     if (er) push("Coolant (avg)", er.avg.toFixed(0), "°C", er.avg < ECT_COLD ? "crit" : er.avg < ECT_OPT[0] ? "warn" : "ok");
     const vi = vtecInfo(log);

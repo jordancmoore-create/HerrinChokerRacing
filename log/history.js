@@ -122,7 +122,7 @@
       statBlock("Highest IDC", a.peakIdc != null ? a.peakIdc.toFixed(1) : "–", "%"),
       statBlock("Top RPM", a.peakRpm != null ? Math.round(a.peakRpm).toLocaleString() : "–", ""),
       statBlock("Avg coolant", a.coolantAvg != null ? a.coolantAvg.toFixed(0) : "–", "°C"),
-      statBlock("Lowest fuel P", a.minFuelP != null ? a.minFuelP.toFixed(0) : "–", "kPa"),
+      statBlock("Lowest fuel P", a.minFuelP != null ? Units.fuelFromKpa(a.minFuelP).toFixed(0) : "–", Units.fuelLabel()),
       statBlock("Avg VTEC pt", a.vtecRpm != null ? Math.round(a.vtecRpm).toLocaleString() : "–", "rpm"),
       statBlock("Min voltage", a.voltMin != null ? a.voltMin.toFixed(1) : "–", "V"),
     ];

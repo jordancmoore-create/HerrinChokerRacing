@@ -119,6 +119,24 @@
     } } };
   }
 
+  // green target band between lo..hi with dashed boundary lines (display units)
+  function bandZone(lo, hi) {
+    return { hooks: { drawClear: u => {
+      const ctx = u.ctx;
+      const yLo = u.valToPos(lo, "y", true), yHi = u.valToPos(hi, "y", true);
+      ctx.save();
+      ctx.fillStyle = "rgba(52,211,153,0.12)";
+      ctx.fillRect(u.bbox.left, yHi, u.bbox.width, yLo - yHi);
+      ctx.strokeStyle = "rgba(52,211,153,0.55)"; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+      [yLo, yHi].forEach(y => {
+        if (y >= u.bbox.top && y <= u.bbox.top + u.bbox.height) {
+          ctx.beginPath(); ctx.moveTo(u.bbox.left, y); ctx.lineTo(u.bbox.left + u.bbox.width, y); ctx.stroke();
+        }
+      });
+      ctx.restore();
+    } } };
+  }
+
   const charts = [];
   let syncing = false;
   const CH_H = 172;   // chart plot height (px)
@@ -149,25 +167,39 @@
       if (lo === 0 && hi === 0) return;            // skip dead channels
       const avg = sum / ch.values.length;
       const ys = interp(ch, grid);
-      const unit = UNIT_FIX[ch.unit] || ch.unit;
+
+      // Fuel Pressure: convert from kPa to the selected display unit (PSI default)
+      const isFuel = spec.name === "Fuel Pressure";
+      const conv = isFuel ? Units.fuelFromKpa : (x => x);
+      if (isFuel) for (let i = 0; i < ys.length; i++) ys[i] = Units.fuelFromKpa(ys[i]);
+      const unit = isFuel ? Units.fuelLabel() : (UNIT_FIX[ch.unit] || ch.unit);
       const us = unit ? " " + unit : "";
+      let dLo = conv(lo), dHi = conv(hi), dAvg = conv(avg);
 
       const card = document.createElement("div");
       card.className = "chart-card";
+      const unitHtml = isFuel
+        ? `<span class="chart-unit unit-toggle" data-fuel-toggle title="Toggle PSI / kPa">${unit} ⇄</span>`
+        : `<span class="chart-unit">${unit || ""}</span>`;
       card.innerHTML = `<div class="chart-head">
           <span class="chart-dot" style="background:${spec.color}"></span>
           <span class="chart-name">${ch.name}</span>
-          <span class="chart-unit">${unit || ""}</span>
+          ${unitHtml}
           <span class="chart-val" data-val></span>
         </div><div class="chart-body"></div>
         <div class="chart-stats">
-          <span><i>Min</i> ${fmt(lo)}${us}</span>
-          <span><i>Max</i> ${fmt(hi)}${us}</span>
-          <span><i>Avg</i> ${fmt(avg)}${us}</span>
+          <span><i>Min</i> ${fmt(dLo)}${us}</span>
+          <span><i>Max</i> ${fmt(dHi)}${us}</span>
+          <span><i>Avg</i> ${fmt(dAvg)}${us}</span>
         </div>`;
       container.appendChild(card);
       const valEl = card.querySelector("[data-val]");
       const body = card.querySelector(".chart-body");
+      const ft = card.querySelector("[data-fuel-toggle]");
+      if (ft) ft.addEventListener("click", () => {
+        Units.toggleFuel();
+        global.dispatchEvent(new CustomEvent("fuelunitchange"));
+      });
 
       // per-channel overlays for the team's requested items
       const extra = [];
@@ -178,14 +210,19 @@
           intervalsOf(vt, v => Math.round(v) === 3)));
       }
       if (spec.name === "ECT") {
-        lo = Math.min(lo, 55); hi = Math.max(hi, 92);   // keep coolant target band in view
+        dLo = Math.min(dLo, 55); dHi = Math.max(dHi, 92);   // keep coolant target band in view
         extra.push(zonePlugin(75, 90, 60));
       }
-      const pad = (hi - lo) * 0.08 || 1;
+      if (isFuel) {
+        const [bLo, bHi] = Units.fuelBand();                // 48–52 psi (or kPa) target band
+        dLo = Math.min(dLo, bLo); dHi = Math.max(dHi, bHi);
+        extra.push(bandZone(bLo, bHi));
+      }
+      const pad = (dHi - dLo) * 0.08 || 1;
       const opts = {
         width: body.clientWidth || 900, height: CH_H,
         cursor: { sync: { key: sync.key }, points: { size: 6 }, drag: { x: true, y: false } },
-        scales: { x: { time: false }, y: { range: [lo - pad, hi + pad] } },
+        scales: { x: { time: false }, y: { range: [dLo - pad, dHi + pad] } },
         legend: { show: false },
         axes: [
           { stroke: cssVar("--chart-axis", "#64748b"), grid: { stroke: cssVar("--chart-grid", "rgba(148,163,184,0.08)") }, ticks: { stroke: cssVar("--chart-grid", "rgba(148,163,184,0.15)") },

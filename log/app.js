@@ -260,6 +260,17 @@
   window.addEventListener("beforeprint", () => Charts.setPrintMode(true));
   window.addEventListener("afterprint", () => Charts.setPrintMode(false));
 
+  // fuel-pressure unit toggle (PSI ⇄ kPa): recompute the open log's flags/KPIs + refresh
+  window.addEventListener("fuelunitchange", () => {
+    if (active >= 0) {
+      const e = logs[active];
+      e.kpis = Analysis.kpis(e.log, e.seg);
+      e.flags = Analysis.flags(e.log, e.seg);
+    }
+    refreshHistory();
+    render();
+  });
+
   // ---------- init ----------
   loadPublished().then(refreshHistory);
   render();
