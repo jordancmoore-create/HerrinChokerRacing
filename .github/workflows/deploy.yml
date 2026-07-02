@@ -21,5 +21,7 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          # account is auto-detected from the token (single account), matching a
-          # local `wrangler deploy`. No `command:` → runs `wrangler deploy`.
+          # Pin to a 4.x wrangler — the action defaults to 3.90.0, which doesn't
+          # support our static-assets config (assets/binding/main). Matches the
+          # version that deployed fine locally. Account auto-detected from token.
+          wranglerVersion: "4.107.0"
