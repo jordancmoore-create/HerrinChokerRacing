@@ -15,9 +15,18 @@ function json(data, status = 200) {
 function authed(passcode, env) {
   return !!env.UPLOAD_PASSCODE && passcode === env.UPLOAD_PASSCODE;
 }
-// Passcode for reads (and a uniform gate for writes): header or query string.
+// Passcode for reads (and a uniform gate for writes). Sent base64-encoded in the
+// x-access-key header so any character (accents, £, non-ASCII) survives — plain
+// HTTP headers can't carry those. Falls back to a raw ?k= query if present.
 function accessKey(request, url) {
-  return request.headers.get("x-access-key") || url.searchParams.get("k") || "";
+  const h = request.headers.get("x-access-key");
+  if (h) {
+    try {
+      const bin = atob(h);
+      return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+    } catch { return h; }   // not base64 (older client) → use as-is
+  }
+  return url.searchParams.get("k") || "";
 }
 // Keep ids stable between upload and fetch (and matching the client content id).
 function sanitizeId(id) {

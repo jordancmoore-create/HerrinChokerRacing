@@ -14,7 +14,13 @@
   const key = () => localStorage.getItem(KEY) || "";
   const setKey = k => { k ? localStorage.setItem(KEY, k) : localStorage.removeItem(KEY); };
   const hasKey = () => !!key();
-  const auth = () => ({ "x-access-key": key() });
+  // base64-encode the passcode (UTF-8) so any character survives the HTTP header
+  function b64(s) {
+    const bytes = new TextEncoder().encode(s);
+    let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  const auth = () => ({ "x-access-key": b64(key()) });
   const fileUrl = id => BASE + "get/" + encodeURIComponent(id);
   const fetchFile = id => fetch(fileUrl(id), { headers: auth() });
 
