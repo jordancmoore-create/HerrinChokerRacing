@@ -1,0 +1,10 @@
+worker.js
+wrangler.jsonc
+.assetsignore
+.dev.vars
+functions/
+.wrangler/
+node_modules/
+.claude/
+*.bak
+CLAUDE.md

@@ -1,3 +1,6 @@
 .DS_Store
 Thumbs.db
 *.bak
+.wrangler/
+.dev.vars
+node_modules/
