@@ -5,22 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>INFERNO Telemetry — Herrin Choker Racing #38</title>
 <link rel="stylesheet" href="vendor/uPlot.min.css">
-<link rel="stylesheet" href="styles.css?v=10">
+<link rel="stylesheet" href="styles.css?v=11">
 <script>document.documentElement.dataset.theme = localStorage.getItem('inferno-theme') || 'dark';</script>
 </head>
 <body>
 <header class="topbar">
   <div class="brand">
     <span class="logo">38</span>
-    <div>INFERNO<br><small>Herrin Choker Racing · Telemetry</small></div>
+    <div class="brand-text"><span class="brand-name">INFERNO</span><small>Herrin Choker Racing · Telemetry</small></div>
   </div>
   <div class="spacer"></div>
-  <button class="ghost-btn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">☀</button>
-  <button class="ghost-btn" id="homeBtn">⌂ Home</button>
-  <button class="ghost-btn" id="cloudBtn" title="Shared library">☁ connect</button>
-  <button class="ghost-btn" id="publishBtn">⇪ Publish</button>
-  <button class="ghost-btn" id="exportBtn">⤓ Export PDF</button>
-  <button class="ghost-btn" id="openBtn">Open log…</button>
+  <button class="ghost-btn icon-btn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">☀</button>
+  <button class="ghost-btn" id="homeBtn" title="Home"><span class="bi">⌂</span><span class="bl">Home</span></button>
+  <button class="ghost-btn" id="cloudBtn" title="Shared library"><span class="bi">☁</span><span class="bl">connect</span></button>
+  <button class="ghost-btn" id="exportBtn" title="Export PDF"><span class="bi">⤓</span><span class="bl">PDF</span></button>
+  <button class="ghost-btn" id="openBtn" title="Add log"><span class="bi">＋</span><span class="bl">Add log</span></button>
 </header>
 
 <main>
@@ -50,15 +49,14 @@
 <input type="file" id="fileInput" accept=".llgx" multiple hidden>
 
 <script src="vendor/uPlot.iife.min.js"></script>
-<script src="units.js?v=10"></script>
-<script src="zip.js?v=10"></script>
-<script src="db.js?v=10"></script>
-<script src="cloud.js?v=10"></script>
-<script src="history.js?v=10"></script>
-<script src="llgx.js?v=10"></script>
-<script src="analysis.js?v=10"></script>
-<script src="charts.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="units.js?v=11"></script>
+<script src="db.js?v=11"></script>
+<script src="cloud.js?v=11"></script>
+<script src="history.js?v=11"></script>
+<script src="llgx.js?v=11"></script>
+<script src="analysis.js?v=11"></script>
+<script src="charts.js?v=11"></script>
+<script src="app.js?v=11"></script>
 <script>document.getElementById('openBtn').onclick=()=>document.getElementById('fileInput').click();</script>
 </body>
 </html>

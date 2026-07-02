@@ -15,46 +15,60 @@
   // content-based id: same log dedupes even if the file was renamed
   function contentId(log, name) { return (log.title || name || "log") + "__" + (log.serial || ""); }
 
-  function onFiles(fileList) {
-    const files = [...fileList].filter(f => /\.llgx$/i.test(f.name));
-    if (!files.length) { toast("Drop .llgx log files"); return; }
-    let pending = files.length, added = 0, dupes = 0;
-    files.forEach(file => {
+  function readFile(file) {
+    return new Promise((resolve, reject) => {
       const r = new FileReader();
-      r.onload = () => {
-        try {
-          const buf = r.result;
-          const log = LLGX.parse(buf);
-          const seg = Analysis.segment(log);
-          const id = contentId(log, file.name);
-          if (logs.some(e => e.id === id) || historyMeta.some(m => m.id === id)) dupes++; else added++;
-          const ex = logs.findIndex(e => e.id === id);
-          const entry = { id, name: file.name, log, seg, flags: Analysis.flags(log, seg), kpis: Analysis.kpis(log, seg) };
-          if (ex >= 0) logs.splice(ex, 1);
-          logs.push(entry);
-          active = logs.length - 1; home = false;
-          saveHistory(id, file, buf, log, seg);
-        } catch (e) {
-          console.error(e); toast("Couldn't read " + file.name + ": " + e.message);
-        }
-        if (--pending === 0) { render(); if (dupes) toast(`${added} added, ${dupes} already in library`); }
-      };
-      r.onerror = () => { toast("Read error: " + file.name); if (--pending === 0) render(); };
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(new Error("read error"));
       r.readAsArrayBuffer(file);
     });
   }
 
+  // Handle dropped/opened logs one at a time: parse → prompt for race/heat → save + auto-upload.
+  async function onFiles(fileList) {
+    const files = [...fileList].filter(f => /\.llgx$/i.test(f.name));
+    if (!files.length) { toast("Drop .llgx log files"); return; }
+    for (const file of files) {
+      let buf, log, seg, id;
+      try {
+        buf = await readFile(file);
+        log = LLGX.parse(buf);
+        seg = Analysis.segment(log);
+        id = contentId(log, file.name);
+      } catch (e) { console.error(e); toast("Couldn't read " + file.name + ": " + e.message); continue; }
+
+      const ex = logs.findIndex(e => e.id === id);
+      const entry = { id, name: file.name, log, seg, flags: Analysis.flags(log, seg), kpis: Analysis.kpis(log, seg) };
+      if (ex >= 0) logs.splice(ex, 1);
+      logs.push(entry);
+      active = logs.length - 1; home = false;
+
+      // prompt to confirm race / heat (pre-filled from the log's date) before saving
+      const prev = historyMeta.find(m => m.id === id);
+      const preset = (prev && prev.cls) || History.classify(History.parseLogTime(log.title, file.name));
+      const res = await classifyModal(file.name, preset, prev ? prev.note : "");
+      if (res === null) {   // cancelled → drop this log from the session, skip save
+        logs.splice(logs.findIndex(e => e.id === id), 1);
+        active = logs.length - 1; if (!logs.length) home = true;
+        render(); continue;
+      }
+      saveHistory(id, file, buf, log, seg, res.cls, res.note);
+      render();
+    }
+  }
+
   // ---------- persistence ----------
-  function saveHistory(id, file, bytes, log, seg) {
+  function saveHistory(id, file, bytes, log, seg, clsOverride, noteOverride) {
     const logTime = History.parseLogTime(log.title, file.name);
-    // preserve a manual (non-auto) classification if this log is already saved
     const prev = historyMeta.find(m => m.id === id);
-    const cls = (prev && prev.cls && prev.cls.auto === false) ? prev.cls : History.classify(logTime);
+    // use the classification chosen at drop; else keep a manual one; else auto-guess
+    const cls = clsOverride || (prev && prev.cls && prev.cls.auto === false ? prev.cls : History.classify(logTime));
+    const note = noteOverride !== undefined ? noteOverride : ((prev && prev.note) || "");
     const meta = {
       id, name: file.name, size: file.size, added: (prev && prev.added) || Date.now(),
       title: log.title, ecu: log.ecu_model, serial: log.serial,
       duration: log.duration, channels: log.channels.length,
-      logTime, cls, note: (prev && prev.note) || "", stats: Analysis.summaryStats(log, seg),
+      logTime, cls, note, stats: Analysis.summaryStats(log, seg),
     };
     if (DB.available())
       DB.put(meta, bytes).then(refreshHistory).catch(e => console.warn("history save failed", e));
@@ -169,54 +183,59 @@
     }).catch(e => toast("Couldn't open: " + e.message));
   }
 
-  // ---------- publish ----------
-  async function publish() {
-    const local = historyMeta.filter(m => !m.published);
-    if (!local.length) { toast("No local logs to publish"); return; }
-    // connected to the live cloud library → push straight up instead of building a ZIP
-    if (Cloud.hasKey() && Cloud.isOnline() !== false) return pushAllToCloud(local);
-    toast("Building publish bundle…");
-    const files = [], manifestLogs = [];
-    for (const m of local) {
-      const bytes = await DB.getBytes(m.id);
-      if (!bytes) continue;
-      const safe = m.id.replace(/[^a-z0-9._-]+/gi, "_").slice(0, 120);
-      const path = "logs/" + safe + ".llgx";
-      files.push({ name: path, data: new Uint8Array(bytes) });
-      manifestLogs.push({
-        id: m.id, name: m.name, title: m.title, ecu: m.ecu, serial: m.serial,
-        duration: m.duration, channels: m.channels, logTime: m.logTime,
-        cls: m.cls, note: m.note || "", stats: m.stats, file: path,
+  // ---------- classify-on-drop modal (race / heat) ----------
+  // Shown for each dropped log; pre-filled from the log's date. Resolves to
+  // { cls, note } on save, or null on cancel.
+  function classifyModal(fileName, preset, presetNote) {
+    return new Promise(resolve => {
+      const cls0 = preset || { group: "race" };
+      let group = cls0.group === "race" ? "race" : "testing";
+      const opt = (v, sel, label) => `<option value="${v}"${sel ? " selected" : ""}>${label || v}</option>`;
+      const evOpts = History.SCHEDULE.map(e => opt(e.id, cls0.event === e.id, e.name)).join("");
+      const dayOpts = ["Fri", "Sat", "Sun"].map(d => opt(d, cls0.day === d)).join("");
+      const heatOpts = [1, 2].map(h => opt(h, +cls0.heat === h, "Heat " + h)).join("");
+
+      const m = el("div", "modal open");
+      m.innerHTML = `<div class="modal-card">
+          <div class="modal-logo">38</div>
+          <div class="modal-title">New log — classify it</div>
+          <div class="modal-file">${esc(shortName(fileName))}</div>
+          <div class="seg-toggle" id="segToggle">
+            <button type="button" data-g="race" class="${group === "race" ? "on" : ""}">🏁 Race</button>
+            <button type="button" data-g="testing" class="${group === "testing" ? "on" : ""}">🔧 Testing</button>
+          </div>
+          <div class="modal-fields" id="raceFields" style="${group === "race" ? "" : "display:none"}">
+            <label>Event<select data-f="event">${evOpts}</select></label>
+            <div class="modal-row">
+              <label>Day<select data-f="day">${dayOpts}</select></label>
+              <label>Heat<select data-f="heat">${heatOpts}</select></label>
+            </div>
+          </div>
+          <input class="note-input" data-f="note" type="text" maxlength="120"
+            placeholder="Note (optional) — e.g. Blowover lap 1; DNS" value="${esc(presetNote || "")}">
+          <button class="modal-save" type="button">Save &amp; upload ☁</button>
+          <button class="modal-cancel" type="button">Cancel</button>
+        </div>`;
+      document.body.appendChild(m);
+      document.body.classList.add("modal-open");
+
+      const raceFields = m.querySelector("#raceFields");
+      m.querySelector("#segToggle").addEventListener("click", e => {
+        const b = e.target.closest("[data-g]"); if (!b) return;
+        group = b.getAttribute("data-g");
+        m.querySelectorAll("#segToggle button").forEach(x => x.classList.toggle("on", x === b));
+        raceFields.style.display = group === "race" ? "" : "none";
       });
-    }
-    const manifest = { generated: Date.now(), team: "Herrin Choker Racing #38 · INFERNO", logs: manifestLogs };
-    files.push({ name: "manifest.json", data: new TextEncoder().encode(JSON.stringify(manifest, null, 2)) });
-    downloadBlob(Zip.zipStore(files), "inferno-telemetry-data.zip");
-    toast(`Published ${manifestLogs.length} logs → unzip into the app folder, then redeploy`);
-  }
-
-  // upload every local log to the shared cloud library (backfill / manual sync)
-  async function pushAllToCloud(local) {
-    toast("Uploading to shared library…");
-    let ok = 0;
-    for (const m of local) {
-      const bytes = await DB.getBytes(m.id);
-      if (!bytes) continue;
-      try { await Cloud.upload(cloudMeta(m), bytes); ok++; }
-      catch (e) {
-        if (e.message === "passcode") { Cloud.setKey(""); toast("Upload rejected — wrong passcode"); break; }
-        toast("Upload failed for " + shortName(m.name) + ": " + e.message);
-      }
-    }
-    await reloadCloud(); refreshHistory();
-    toast(`Pushed ${ok} log${ok !== 1 ? "s" : ""} to shared library ☁`);
-  }
-
-  function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename; document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+      const close = val => { m.remove(); document.body.classList.remove("modal-open"); resolve(val); };
+      m.querySelector(".modal-cancel").onclick = () => close(null);
+      m.querySelector(".modal-save").onclick = () => {
+        const cls = group === "race"
+          ? { group: "race", event: m.querySelector('[data-f="event"]').value, day: m.querySelector('[data-f="day"]').value, heat: +m.querySelector('[data-f="heat"]').value, auto: false }
+          : { group: "testing", auto: false };
+        close({ cls, note: (m.querySelector('[data-f="note"]').value || "").trim() });
+      };
+      setTimeout(() => m.querySelector(".modal-save").focus(), 50);
+    });
   }
 
   // ---------- render ----------
@@ -335,8 +354,6 @@
     if (active < 0 || home) { toast("Open a log first"); return; }
     window.print();
   });
-  const pubBtn = $("#publishBtn");
-  if (pubBtn) pubBtn.addEventListener("click", () => publish());
 
   // ---------- passcode gate (private shared library) ----------
   let gateEl = null, gateShown = false;
@@ -378,7 +395,9 @@
   function updateCloudBtn() {
     const b = $("#cloudBtn"); if (!b) return;
     const off = Cloud.isOnline() === false;
-    b.textContent = off ? "☁ offline" : (Cloud.hasKey() ? "☁ connected" : "☁ locked");
+    const label = off ? "offline" : (Cloud.hasKey() ? "connected" : "locked");
+    const bl = b.querySelector(".bl");
+    if (bl) bl.textContent = label; else b.textContent = "☁ " + label;
     b.classList.toggle("on", Cloud.hasKey() && !off);
     b.title = off ? "Shared library not reachable" : "Connected to the shared library. Click to lock on this device.";
   }
