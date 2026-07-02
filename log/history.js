@@ -90,14 +90,15 @@
     if (st.peakIdc != null) chips.push(`${st.peakIdc.toFixed(0)}% IDC`);
     if (st.coolantAvg != null) chips.push(`${st.coolantAvg.toFixed(0)}°C`);
     const note = r.note ? `<div class="hist-note">📝 ${esc(r.note)}</div>` : "";
-    const ro = !!r.published;
+    const ro = !!r.published && !r.editable;   // cloud logs are editable once connected
+    const cloudBadge = r.cloud ? `<span class="hist-cloud" title="In the shared library">☁</span>` : "";
     const delBtn = ro ? "" : `<button class="hist-del" data-del="${esc(r.id)}" title="Remove">×</button>`;
     const tag = ro
       ? `<span class="hist-tag ro">${esc(clsLabel(r.cls))}</span>`
       : `<button class="hist-tag" data-edit="${esc(r.id)}">${esc(clsLabel(r.cls))} ✎</button>`;
     return `<div class="hist-card${ro ? " published" : ""}" data-id="${esc(r.id)}">
       ${delBtn}
-      <div class="hist-title">${esc(shortName(r.name))}</div>
+      <div class="hist-title">${cloudBadge}${esc(shortName(r.name))}</div>
       <div class="hist-meta">${esc((r.duration / 60).toFixed(1))} min · ${esc(r.channels)} ch · ${chips.join(" · ")}</div>
       <div class="hist-date">${esc(dt)}</div>
       ${note}

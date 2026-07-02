@@ -52,6 +52,8 @@ body{
 body.has-logs:not(.home) #exportBtn{display:block}
 #publishBtn{display:none}
 body.has-local #publishBtn{display:block}
+#cloudBtn.on{border-color:var(--accent);color:var(--accent);background:rgba(var(--accent-rgb),.08)}
+.hist-cloud{color:var(--accent);margin-right:5px;font-size:12px;opacity:.9}
 .hist-tag.ro{cursor:default;background:rgba(var(--accent-rgb),.08)}
 .hist-card.published::after{content:"shared";position:absolute;bottom:9px;right:10px;
   font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--dim)}

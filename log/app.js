@@ -46,7 +46,6 @@
 
   // ---------- persistence ----------
   function saveHistory(id, file, bytes, log, seg) {
-    if (!DB.available()) return;
     const logTime = History.parseLogTime(log.title, file.name);
     // preserve a manual (non-auto) classification if this log is already saved
     const prev = historyMeta.find(m => m.id === id);
@@ -57,10 +56,31 @@
       duration: log.duration, channels: log.channels.length,
       logTime, cls, note: (prev && prev.note) || "", stats: Analysis.summaryStats(log, seg),
     };
-    DB.put(meta, bytes).then(refreshHistory).catch(e => console.warn("history save failed", e));
+    if (DB.available())
+      DB.put(meta, bytes).then(refreshHistory).catch(e => console.warn("history save failed", e));
+    maybeCloudUpload(meta, bytes);   // auto-save to the shared library if connected
   }
 
-  // load the published (shared) library from the host, if present
+  // load the shared library: prefer the live cloud API, fall back to a static manifest
+  function loadShared() {
+    return Cloud.list().then(arr => {
+      if (Array.isArray(arr)) { setCloudMeta(arr); return; }
+      return loadPublished();   // API not deployed yet → static-manifest behaviour
+    });
+  }
+
+  // cloud entries render read-only for viewers; editable/deletable once connected (passcode)
+  function setCloudMeta(arr) {
+    const editable = Cloud.hasKey();
+    publishedMeta = arr.map(e => Object.assign({}, e, {
+      published: true, cloud: true, editable, file: Cloud.fileUrl(e.id),
+    }));
+  }
+  function reloadCloud() {
+    return Cloud.list().then(arr => { if (Array.isArray(arr)) setCloudMeta(arr); });
+  }
+
+  // static manifest.json fallback (legacy publish-to-ZIP model)
   function loadPublished() {
     return fetch("manifest.json", { cache: "no-cache" })
       .then(r => (r.ok ? r.json() : null))
@@ -68,12 +88,40 @@
       .catch(() => { });
   }
 
+  // lean metadata the cloud needs (matches the index entry shape)
+  function cloudMeta(m) {
+    return {
+      id: m.id, name: m.name, title: m.title, ecu: m.ecu, serial: m.serial,
+      duration: m.duration, channels: m.channels, logTime: m.logTime,
+      cls: m.cls, note: m.note || "", stats: m.stats,
+    };
+  }
+
+  // auto-save a freshly-dropped log to the shared library when connected
+  function maybeCloudUpload(meta, bytes) {
+    if (!Cloud.hasKey() || Cloud.isOnline() === false) return;
+    Cloud.upload(cloudMeta(meta), bytes)
+      .then(() => reloadCloud())
+      .then(() => { refreshHistory(); toast("Saved to shared library ☁"); })
+      .catch(err => {
+        if (err.message === "passcode") { Cloud.setKey(""); toast("Upload rejected — wrong passcode"); reloadCloud().then(refreshHistory); }
+        else toast("Cloud save failed: " + err.message);
+      });
+  }
+
   function refreshHistory() {
     const localP = DB.available() ? DB.allMeta() : Promise.resolve([]);
     return localP.then(localList => {
-      const localIds = new Set(localList.map(m => m.id));
-      const pub = publishedMeta.filter(p => !localIds.has(p.id));  // local overrides published
-      historyMeta = localList.concat(pub);
+      const connected = Cloud.hasKey() && Cloud.isOnline() !== false;
+      let merged;
+      if (connected) {
+        const cloudIds = new Set(publishedMeta.map(p => p.id));   // shared library wins when connected
+        merged = publishedMeta.concat(localList.filter(m => !cloudIds.has(m.id)));
+      } else {
+        const localIds = new Set(localList.map(m => m.id));        // local wins offline / for viewers
+        merged = localList.concat(publishedMeta.filter(p => !localIds.has(p.id)));
+      }
+      historyMeta = merged;
       document.body.classList.toggle("has-local", localList.length > 0);
       History.render($("#history"), historyMeta, handlers);
     }).catch(e => console.warn("history load failed", e));
@@ -81,14 +129,23 @@
 
   const handlers = {
     open: openFromHistory,
-    del: id => DB.del(id).then(refreshHistory).catch(e => console.warn(e)),
-    clear: () => { if (confirm("Remove all saved logs from history?")) DB.clear().then(refreshHistory); },
+    del: id => {
+      const m = historyMeta.find(r => r.id === id);
+      const local = DB.available() ? DB.del(id) : Promise.resolve();
+      const cloud = (m && m.cloud) ? Cloud.remove(id).then(reloadCloud) : Promise.resolve();
+      Promise.all([local, cloud]).then(refreshHistory)
+        .catch(e => toast(e.message === "passcode" ? "Connect (☁) to delete shared logs" : "Delete failed: " + e.message));
+    },
+    clear: () => { if (confirm("Remove all locally-saved logs? (Shared library is not affected.)")) DB.clear().then(refreshHistory); },
     reassign: (id, cls, note) => {
       const m = historyMeta.find(r => r.id === id);
       if (!m) return;
       m.cls = cls;
       if (note !== undefined) m.note = note;
-      DB.putMeta(m).then(refreshHistory).catch(e => console.warn(e));
+      const local = DB.available() && !m.cloud ? DB.putMeta(m) : Promise.resolve();
+      const cloud = m.cloud ? Cloud.update(id, { cls, note: m.note }).then(reloadCloud) : Promise.resolve();
+      Promise.all([local, cloud]).then(refreshHistory)
+        .catch(e => toast(e.message === "passcode" ? "Connect (☁) to edit shared logs" : "Update failed: " + e.message));
     },
   };
 
@@ -108,10 +165,12 @@
     }).catch(e => toast("Couldn't open: " + e.message));
   }
 
-  // ---------- publish (export shareable bundle) ----------
+  // ---------- publish ----------
   async function publish() {
     const local = historyMeta.filter(m => !m.published);
     if (!local.length) { toast("No local logs to publish"); return; }
+    // connected to the live cloud library → push straight up instead of building a ZIP
+    if (Cloud.hasKey() && Cloud.isOnline() !== false) return pushAllToCloud(local);
     toast("Building publish bundle…");
     const files = [], manifestLogs = [];
     for (const m of local) {
@@ -130,6 +189,23 @@
     files.push({ name: "manifest.json", data: new TextEncoder().encode(JSON.stringify(manifest, null, 2)) });
     downloadBlob(Zip.zipStore(files), "inferno-telemetry-data.zip");
     toast(`Published ${manifestLogs.length} logs → unzip into the app folder, then redeploy`);
+  }
+
+  // upload every local log to the shared cloud library (backfill / manual sync)
+  async function pushAllToCloud(local) {
+    toast("Uploading to shared library…");
+    let ok = 0;
+    for (const m of local) {
+      const bytes = await DB.getBytes(m.id);
+      if (!bytes) continue;
+      try { await Cloud.upload(cloudMeta(m), bytes); ok++; }
+      catch (e) {
+        if (e.message === "passcode") { Cloud.setKey(""); toast("Upload rejected — wrong passcode"); break; }
+        toast("Upload failed for " + shortName(m.name) + ": " + e.message);
+      }
+    }
+    await reloadCloud(); refreshHistory();
+    toast(`Pushed ${ok} log${ok !== 1 ? "s" : ""} to shared library ☁`);
   }
 
   function downloadBlob(blob, filename) {
@@ -257,6 +333,25 @@
   });
   const pubBtn = $("#publishBtn");
   if (pubBtn) pubBtn.addEventListener("click", () => publish());
+
+  // shared-library connect: enter the team passcode to enable uploads/edits
+  function updateCloudBtn() {
+    const b = $("#cloudBtn"); if (!b) return;
+    const off = Cloud.isOnline() === false;
+    b.textContent = off ? "☁ offline" : (Cloud.hasKey() ? "☁ connected" : "☁ connect");
+    b.classList.toggle("on", Cloud.hasKey() && !off);
+    b.title = off ? "Shared library not reachable" : (Cloud.hasKey() ? "Connected — uploads enabled. Click to change passcode." : "Enter team passcode to upload logs");
+  }
+  const cloudBtn = $("#cloudBtn");
+  if (cloudBtn) cloudBtn.addEventListener("click", () => {
+    if (Cloud.isOnline() === false) { toast("Shared library not reachable yet"); return; }
+    const has = Cloud.hasKey();
+    const k = prompt(has ? "Update team passcode (leave blank to disconnect):" : "Enter the team passcode to enable uploads:", "");
+    if (k === null) return;
+    Cloud.setKey(k.trim());
+    toast(k.trim() ? "Connected — uploads enabled ☁" : "Disconnected from shared library");
+    reloadCloud().then(refreshHistory).then(updateCloudBtn);
+  });
   window.addEventListener("beforeprint", () => Charts.setPrintMode(true));
   window.addEventListener("afterprint", () => Charts.setPrintMode(false));
 
@@ -272,6 +367,6 @@
   });
 
   // ---------- init ----------
-  loadPublished().then(refreshHistory);
+  loadShared().then(refreshHistory).then(updateCloudBtn);
   render();
 })();
