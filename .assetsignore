@@ -6,5 +6,8 @@ functions/
 .wrangler/
 node_modules/
 .claude/
+.git/
+.gitignore
+.gitattributes
 *.bak
 CLAUDE.md
