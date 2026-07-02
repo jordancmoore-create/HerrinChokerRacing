@@ -61,23 +61,24 @@
     maybeCloudUpload(meta, bytes);   // auto-save to the shared library if connected
   }
 
-  // load the shared library: prefer the live cloud API, fall back to a static manifest
+  // load the shared library. The library is private: if the API asks for a
+  // passcode, show the gate; if it's unreachable, fall back to the static manifest.
   function loadShared() {
-    return Cloud.list().then(arr => {
-      if (Array.isArray(arr)) { setCloudMeta(arr); return; }
-      return loadPublished();   // API not deployed yet → static-manifest behaviour
+    return Cloud.list().then(res => {
+      if (res.status === "ok") { setCloudMeta(res.logs); showGate(false); return; }
+      if (res.status === "auth") { publishedMeta = []; showGate(true); return; }
+      return loadPublished();   // API unreachable → static-manifest behaviour
     });
   }
 
-  // cloud entries render read-only for viewers; editable/deletable once connected (passcode)
+  // cloud entries are editable/deletable (having the passcode = full access)
   function setCloudMeta(arr) {
-    const editable = Cloud.hasKey();
     publishedMeta = arr.map(e => Object.assign({}, e, {
-      published: true, cloud: true, editable, file: Cloud.fileUrl(e.id),
+      published: true, cloud: true, editable: true, file: Cloud.fileUrl(e.id),
     }));
   }
   function reloadCloud() {
-    return Cloud.list().then(arr => { if (Array.isArray(arr)) setCloudMeta(arr); });
+    return Cloud.list().then(res => { if (res.status === "ok") setCloudMeta(res.logs); });
   }
 
   // static manifest.json fallback (legacy publish-to-ZIP model)
@@ -153,9 +154,12 @@
     const ex = logs.findIndex(e => e.id === id);
     if (ex >= 0) { active = ex; home = false; render(); return; }
     const m = historyMeta.find(r => r.id === id) || {};
-    const source = (m.published && m.file)
-      ? fetch(m.file).then(r => { if (!r.ok) throw new Error("file not found"); return r.arrayBuffer(); })
-      : DB.getBytes(id);
+    const fetchIt = r => { if (!r.ok) throw new Error("file not found"); return r.arrayBuffer(); };
+    const source = m.cloud
+      ? Cloud.fetchFile(id).then(fetchIt)                      // private R2 file (sends passcode)
+      : (m.published && m.file)
+        ? fetch(m.file).then(fetchIt)                          // legacy static file
+        : DB.getBytes(id);
     Promise.resolve(source).then(bytes => {
       if (!bytes) { toast("Saved file missing"); return; }
       const log = LLGX.parse(bytes);
@@ -334,23 +338,58 @@
   const pubBtn = $("#publishBtn");
   if (pubBtn) pubBtn.addEventListener("click", () => publish());
 
-  // shared-library connect: enter the team passcode to enable uploads/edits
+  // ---------- passcode gate (private shared library) ----------
+  let gateEl = null, gateShown = false;
+  function buildGate() {
+    const g = el("div", "gate"); g.id = "gate";
+    g.innerHTML = `<div class="gate-card">
+        <div class="gate-logo">38</div>
+        <div class="gate-title">INFERNO Telemetry</div>
+        <div class="gate-sub">Herrin Choker Racing · private log library</div>
+        <input id="gateInput" type="password" placeholder="Team passcode" autocomplete="current-password" spellcheck="false">
+        <button id="gateBtn" type="button">Unlock</button>
+        <div class="gate-err" id="gateErr"></div>
+      </div>`;
+    document.body.appendChild(g);
+    const input = g.querySelector("#gateInput"), err = g.querySelector("#gateErr"), btn = g.querySelector("#gateBtn");
+    const submit = () => {
+      const v = input.value.trim(); if (!v) return;
+      err.textContent = ""; btn.disabled = true;
+      Cloud.setKey(v);
+      loadShared().then(() => {
+        btn.disabled = false;
+        if (!gateShown) { input.value = ""; refreshHistory().then(updateCloudBtn); render(); }  // unlocked
+        else { Cloud.setKey(""); err.textContent = "Wrong passcode — try again."; input.select(); }
+      });
+    };
+    btn.onclick = submit;
+    input.addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+    gateEl = g;
+  }
+  function showGate(show) {
+    gateShown = show;
+    if (show && !gateEl) buildGate();
+    if (gateEl) gateEl.classList.toggle("open", show);
+    document.body.classList.toggle("gated", show);
+    if (show && gateEl) setTimeout(() => gateEl.querySelector("#gateInput").focus(), 60);
+  }
+
+  // topbar cloud button: shows state; click locks the library on this device
   function updateCloudBtn() {
     const b = $("#cloudBtn"); if (!b) return;
     const off = Cloud.isOnline() === false;
-    b.textContent = off ? "☁ offline" : (Cloud.hasKey() ? "☁ connected" : "☁ connect");
+    b.textContent = off ? "☁ offline" : (Cloud.hasKey() ? "☁ connected" : "☁ locked");
     b.classList.toggle("on", Cloud.hasKey() && !off);
-    b.title = off ? "Shared library not reachable" : (Cloud.hasKey() ? "Connected — uploads enabled. Click to change passcode." : "Enter team passcode to upload logs");
+    b.title = off ? "Shared library not reachable" : "Connected to the shared library. Click to lock on this device.";
   }
   const cloudBtn = $("#cloudBtn");
   if (cloudBtn) cloudBtn.addEventListener("click", () => {
-    if (Cloud.isOnline() === false) { toast("Shared library not reachable yet"); return; }
-    const has = Cloud.hasKey();
-    const k = prompt(has ? "Update team passcode (leave blank to disconnect):" : "Enter the team passcode to enable uploads:", "");
-    if (k === null) return;
-    Cloud.setKey(k.trim());
-    toast(k.trim() ? "Connected — uploads enabled ☁" : "Disconnected from shared library");
-    reloadCloud().then(refreshHistory).then(updateCloudBtn);
+    if (Cloud.isOnline() === false) { toast("Shared library not reachable"); return; }
+    if (!Cloud.hasKey()) { showGate(true); return; }
+    if (confirm("Lock the shared library on this device? You'll need the team passcode to view it again.")) {
+      Cloud.setKey(""); publishedMeta = [];
+      updateCloudBtn(); refreshHistory(); showGate(true);
+    }
   });
   window.addEventListener("beforeprint", () => Charts.setPrintMode(true));
   window.addEventListener("afterprint", () => Charts.setPrintMode(false));

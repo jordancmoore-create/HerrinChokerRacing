@@ -15,6 +15,10 @@ function json(data, status = 200) {
 function authed(passcode, env) {
   return !!env.UPLOAD_PASSCODE && passcode === env.UPLOAD_PASSCODE;
 }
+// Passcode for reads (and a uniform gate for writes): header or query string.
+function accessKey(request, url) {
+  return request.headers.get("x-access-key") || url.searchParams.get("k") || "";
+}
 // Keep ids stable between upload and fetch (and matching the client content id).
 function sanitizeId(id) {
   return String(id || "").replace(/[\/\\\x00-\x1f]+/g, "_").slice(0, 200).trim();
@@ -44,6 +48,10 @@ async function handleApi(request, env, url) {
   // R2 not bound yet → tell the client "unavailable" so it keeps its static/local fallback.
   if (!env.LOGS) return json({ error: "storage not configured" }, path === "list" ? 503 : 500);
 
+  // The whole library is private: reads AND writes require the team passcode
+  // (sent as x-access-key header or ?k= query on GETs; in body/form on writes).
+  if (!authed(accessKey(request, url), env)) return json({ error: "auth required" }, 401);
+
   if (path === "list" && method === "GET") {
     const idx = await readIndex(env);
     idx.sort((a, b) => (b.logTime || b.uploadedAt || 0) - (a.logTime || a.uploadedAt || 0));
@@ -55,7 +63,7 @@ async function handleApi(request, env, url) {
     const obj = await env.LOGS.get("logs/" + id + ".llgx");
     if (!obj) return new Response("Not found", { status: 404 });
     return new Response(obj.body, {
-      headers: { "content-type": "application/octet-stream", "cache-control": "public, max-age=300" },
+      headers: { "content-type": "application/octet-stream", "cache-control": "private, no-store" },
     });
   }
 

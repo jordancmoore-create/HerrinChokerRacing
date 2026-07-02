@@ -203,6 +203,21 @@ body:not(.has-logs) .tabs{display:none}
 .chart-stats i{color:var(--muted);font-style:normal;font-weight:600;margin-right:6px;text-transform:uppercase;letter-spacing:.4px;font-size:11px}
 .empty,.section-hint{color:var(--muted);text-align:center;padding:30px}
 
+/* ---- passcode gate (private library) ---- */
+.gate{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:var(--bg);padding:24px}
+.gate.open{display:flex}
+body.gated{overflow:hidden}
+.gate-card{width:min(360px,100%);background:var(--panel);border:1px solid var(--panel-bd);border-radius:18px;padding:30px 26px;text-align:center;box-shadow:var(--shadow)}
+.gate-logo{width:54px;height:54px;margin:0 auto 14px;border-radius:14px;display:grid;place-items:center;background:#0c0c0d;border:1px solid #2c2c30;color:var(--accent);font-weight:800;font-size:24px;box-shadow:0 2px 12px rgba(var(--accent-rgb),.35)}
+.gate-title{font-weight:750;font-size:19px;letter-spacing:.5px}
+.gate-sub{color:var(--muted);font-size:13px;margin:5px 0 20px}
+#gateInput{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--panel-bd);color:var(--ink);border-radius:10px;padding:11px 13px;font:inherit;font-size:15px;text-align:center}
+#gateInput:focus{outline:none;border-color:var(--accent)}
+#gateBtn{width:100%;margin-top:11px;background:var(--accent);border:none;color:#fff;border-radius:10px;padding:11px;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
+#gateBtn:hover{filter:brightness(1.08)}
+#gateBtn:disabled{opacity:.6;cursor:default}
+.gate-err{color:var(--crit);font-size:13px;min-height:18px;margin-top:10px}
+
 /* uPlot dark tweaks */
 .u-axis{color:var(--dim)}
 .uplot, .u-wrap{width:100%!important}

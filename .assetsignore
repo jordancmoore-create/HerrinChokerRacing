@@ -11,3 +11,5 @@ node_modules/
 .gitattributes
 *.bak
 CLAUDE.md
+log/logs/
+log/manifest.json
