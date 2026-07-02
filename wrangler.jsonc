@@ -1,15 +1,14 @@
 {
-  // Cloudflare Worker config for herrinchoker.ca (Workers Builds picks this up on
-  // push to main). Serves the repo as static assets and runs worker.js for the
-  // /log/api/* telemetry cloud library. R2 bucket bound here (no dashboard step).
+  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "herrinchoker",
-  "main": "worker.js",
-  "compatibility_date": "2024-09-23",
-  "assets": {
-    "directory": ".",
-    "binding": "ASSETS"
+  "compatibility_date": "2026-07-02",
+  "observability": {
+    "enabled": true
   },
-  "r2_buckets": [
-    { "binding": "LOGS", "bucket_name": "hcr-telemetry-logs" }
+  "assets": {
+    "directory": "."
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
   ]
 }
