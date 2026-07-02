@@ -54,13 +54,6 @@ async function handleApi(request, env, url) {
   const path = url.pathname.replace(/^\/log\/api\/?/, "");   // "list" | "get/<id>" | "upload" | ...
   const method = request.method;
 
-  // TEMP diagnostic — reports only whether the passcode secret is configured
-  // (never its value). Remove after debugging the "passcode rejected" issue.
-  if (path === "_diag") {
-    const s = env.UPLOAD_PASSCODE || "";
-    return json({ secretSet: !!env.UPLOAD_PASSCODE, len: s.length, r2: !!env.LOGS });
-  }
-
   // R2 not bound yet → tell the client "unavailable" so it keeps its static/local fallback.
   if (!env.LOGS) return json({ error: "storage not configured" }, path === "list" ? 503 : 500);
 
