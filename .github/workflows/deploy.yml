@@ -1,0 +1,25 @@
+name: Deploy to Cloudflare Workers
+
+# Auto-deploy herrinchoker.ca on every push to main. Replaces the flaky
+# Cloudflare Workers Builds git integration. Needs one repo secret:
+#   CLOUDFLARE_API_TOKEN  (the "Edit Cloudflare Workers" + R2 token)
+# Optional, only if account can't be auto-detected: CLOUDFLARE_ACCOUNT_ID
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}   # lets you trigger a deploy manually from the Actions tab
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # no `command:` → wrangler-action runs `wrangler deploy` using wrangler.jsonc
