@@ -119,21 +119,29 @@ body.home.has-logs .dropzone{padding:30px}
 .hsplit{flex:1;min-width:210px;background:var(--panel);border:1px solid var(--panel-bd);border-radius:10px;padding:9px 13px}
 .hsplit-h{color:var(--ink);font-weight:700;margin-right:8px}
 
-/* ---- library tree (details/summary) ---- */
-#history details{margin:1px 0}
-#history summary{cursor:pointer;list-style:none;padding:7px 10px;border-radius:9px;user-select:none;
-  display:flex;align-items:center;gap:8px;color:var(--ink);font-weight:600}
+/* ---- library: event "bubble" panels ---- */
+#history summary{list-style:none}
 #history summary::-webkit-details-marker{display:none}
-#history summary::before{content:"▸";color:var(--dim);font-size:10px;transition:.15s;flex:none}
-#history details[open]>summary::before{transform:rotate(90deg)}
-#history summary:hover{background:rgba(255,255,255,.03)}
-#history summary b{color:var(--muted);font-weight:600;font-size:12px}
-.lvl-top>summary{font-size:15px}
-.lvl-event>summary{color:var(--accent)}
-.lvl-event,.lvl-day,.lvl-heat{margin-left:15px}
-.ev-date{color:var(--dim);font-size:12px;font-weight:500}
-.lvl-heat .history-grid{margin:4px 0 10px 16px}
-.pad{padding:6px 12px;color:var(--muted)}
+.lib{display:flex;flex-direction:column;gap:12px}
+.lib-event{background:var(--panel);border:1px solid var(--panel-bd);border-radius:var(--radius);box-shadow:var(--shadow)}
+.lib-event[open]{border-color:rgba(var(--accent-rgb),.28)}
+.lib-ev-head{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;user-select:none;border-radius:var(--radius)}
+.lib-ev-head:hover{background:rgba(var(--accent-rgb),.05)}
+.lib-ev-flag{font-size:16px;line-height:1;flex:none}
+.lib-ev-name{font-weight:750;font-size:15px;letter-spacing:.3px}
+.lib-ev-meta{color:var(--muted);font-size:12px}
+.lib-count{margin-left:auto;background:rgba(var(--accent-rgb),.14);color:var(--accent);
+  border:1px solid rgba(var(--accent-rgb),.3);border-radius:999px;padding:2px 10px;
+  font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.lib-ev-head::after{content:"⌄";color:var(--dim);font-size:16px;line-height:1;flex:none;margin-top:-5px;transition:.15s}
+.lib-event[open] .lib-ev-head::after{transform:rotate(180deg);margin-top:3px}
+.lib-ev-body{padding:2px 15px 15px}
+.lib-grp+.lib-grp{margin-top:15px}
+.lib-grp-h{display:flex;align-items:center;gap:9px;margin:0 2px 9px;
+  font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+.lib-grp-h::after{content:"";flex:1;height:1px;background:var(--panel-bd)}
+.lib-testing .lib-ev-name{color:var(--muted)}
+.pad{padding:6px 2px;color:var(--muted)}
 
 /* ---- classification tag + inline editor on a card ---- */
 .hist-tag{margin-top:9px;background:rgba(var(--accent-rgb),.12);border:1px solid rgba(var(--accent-rgb),.3);

@@ -151,28 +151,33 @@
        <div class="hsplit"><span class="hsplit-h">Races</span>${miniStats(aggregate(racing))}</div>
        <div class="hsplit"><span class="hsplit-h">Testing</span>${miniStats(aggregate(testing))}</div></div>`;
 
-    // library tree
+    // library — one "bubble" panel per race weekend, then a Testing panel
     html += `<div class="history-head" style="margin-top:18px"><h2>Log library</h2></div>`;
-
-    // races grouped by event → day → heat
-    let racesInner = "";
-    SCHEDULE.forEach(ev => {
+    let lib = "";
+    [...SCHEDULE].reverse().forEach(ev => {   // most recent weekend first
       const evRecs = racing.filter(r => r.cls.event === ev.id);
       if (!evRecs.length) return;
       const days = groupBy(evRecs, r => r.cls.day || "?");
-      let daysHtml = "";
+      let body = "";
       Object.keys(days).sort(daySort).forEach(day => {
-        const heats = groupBy(days[day], r => "H" + (r.cls.heat || "?"));
-        let heatsHtml = "";
+        const heats = groupBy(days[day], r => (r.cls.heat || "?"));
         Object.keys(heats).sort().forEach(h => {
-          heatsHtml += details(`Heat ${h.replace("H", "")} <b>(${heats[h].length})</b>`, cardsGrid(heats[h]), true, "lvl-heat");
+          body += `<div class="lib-grp"><div class="lib-grp-h">${dayFull(day)} · Heat ${h}</div>${cardsGrid(heats[h])}</div>`;
         });
-        daysHtml += details(`${dayFull(day)} <b>(${days[day].length})</b>`, heatsHtml, true, "lvl-day");
       });
-      racesInner += details(`${ev.name} <span class="ev-date">${fmtDateRange(ev)}</span> <b>(${evRecs.length})</b>`, daysHtml, true, "lvl-event");
+      const meta = fmtDateRange(ev) + (ev.loc ? " · " + ev.loc : "");
+      lib += `<details class="lib-event" open><summary class="lib-ev-head">` +
+        `<span class="lib-ev-flag">🏁</span><span class="lib-ev-name">${esc(ev.name)}</span>` +
+        `<span class="lib-ev-meta">${esc(meta)}</span><span class="lib-count">${evRecs.length}</span>` +
+        `</summary><div class="lib-ev-body">${body}</div></details>`;
     });
-    html += details(`🏁 Races <b>(${racing.length})</b>`, racesInner || '<div class="muted pad">No race logs yet.</div>', true, "lvl-top");
-    html += details(`🔧 Testing <b>(${testing.length})</b>`, cardsGrid(testing) || '<div class="muted pad">No testing logs.</div>', testing.length <= racing.length, "lvl-top");
+    if (testing.length) {
+      lib += `<details class="lib-event lib-testing" ${racing.length ? "" : "open"}><summary class="lib-ev-head">` +
+        `<span class="lib-ev-flag">🔧</span><span class="lib-ev-name">Testing</span>` +
+        `<span class="lib-ev-meta"></span><span class="lib-count">${testing.length}</span>` +
+        `</summary><div class="lib-ev-body">${cardsGrid(testing)}</div></details>`;
+    }
+    html += `<div class="lib">${lib || '<div class="pad">No logs yet.</div>'}</div>`;
 
     container.innerHTML = html;
     wire(container, handlers, records);
