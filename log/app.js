@@ -381,8 +381,8 @@
     const g = el("div", "gate"); g.id = "gate";
     g.innerHTML = `<div class="gate-card">
         <div class="gate-logo">38</div>
-        <div class="gate-title">INFERNO Telemetry</div>
-        <div class="gate-sub">Herrin Choker Racing · private log library</div>
+        <div class="gate-title">Go Fast Logs</div>
+        <div class="gate-sub">Herrin Choker Racing #38 · private log library</div>
         <input id="gateInput" type="password" placeholder="Team passcode" autocomplete="current-password" spellcheck="false">
         <button id="gateBtn" type="button">Unlock</button>
         <div class="gate-err" id="gateErr"></div>
