@@ -7,7 +7,7 @@
 // Deploy marker — a `wrangler deploy` where worker.js is byte-identical to the
 // live version SKIPS publishing changed static assets. Bump this on asset-only
 // changes so the front-end (log/*.js/css/html) actually goes live.
-globalThis.HCR_BUILD = "v13";
+globalThis.HCR_BUILD = "v14";
 
 const INDEX_KEY = "index.json";
 
