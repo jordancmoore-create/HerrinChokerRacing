@@ -4,6 +4,11 @@
    Bindings (see wrangler.jsonc): ASSETS (static assets), LOGS (R2 bucket).
    Secret: UPLOAD_PASSCODE (gates uploads/edits/deletes; reads are public). */
 
+// Deploy marker — a `wrangler deploy` where worker.js is byte-identical to the
+// live version SKIPS publishing changed static assets. Bump this on asset-only
+// changes so the front-end (log/*.js/css/html) actually goes live.
+globalThis.HCR_BUILD = "v12";
+
 const INDEX_KEY = "index.json";
 
 function json(data, status = 200) {

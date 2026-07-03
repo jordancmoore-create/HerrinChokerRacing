@@ -318,11 +318,110 @@
     return a >= 1000 ? Math.round(v).toLocaleString() : a >= 100 ? v.toFixed(0) : v.toFixed(1);
   }
 
+  // ---------- Readout (point-in-time) view ----------
+  // Scrub the RPM header chart → every key parameter's value at that instant.
+  const READOUT = [
+    { name: "Engine Speed", label: "Engine Speed", unit: "RPM", dec: 0 },
+    { name: "TPS (Main)", label: "TPS", unit: "%", dec: 0 },
+    { name: "MAP", label: "MAP", unit: "kPa", dec: 1 },
+    { name: "Injector Duty Cycle", label: "Injector Duty", unit: "%", dec: 1, warn: v => v >= 100 ? "crit" : v >= 90 ? "warn" : "" },
+    { name: "Fuel Pressure", label: "Fuel Pressure", fuel: true, dec: 0, warn: (v, psi) => psi < 48 ? "crit" : "" },
+    { name: "Lambda 1", label: "Lambda", unit: "λ", dec: 2, warn: v => v > 1.0 ? "crit" : "" },
+    { name: "ECT", label: "Coolant", unit: "°C", dec: 0, warn: v => v < 60 ? "cold" : "" },
+    { name: "IAT", label: "Intake Air", unit: "°C", dec: 0 },
+    { name: "Ignition Angle", label: "Ignition", unit: "°BTDC", dec: 1 },
+    { name: "Batt Voltage", label: "Battery", unit: "V", dec: 2, warn: v => v < 11.5 ? "warn" : "" },
+  ];
+  let readoutChart = null;
+
+  function fmtMS(sec) {
+    sec = Math.max(0, sec); const m = Math.floor(sec / 60), s = Math.round(sec % 60);
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function buildReadout(log, seg, container) {
+    container.innerHTML = "";
+    if (readoutChart) { try { readoutChart.destroy(); } catch (e) {} readoutChart = null; }
+    const dur = log.duration || 1;
+    const dt = dur < 1200 ? 0.1 : 0.25;
+    const n = Math.floor(dur / dt) + 1;
+    const grid = new Float64Array(n);
+    for (let i = 0; i < n; i++) grid[i] = i * dt;
+
+    const series = READOUT.map(spec => {
+      const ch = log.channel(spec.name);
+      return ch && ch.values.length ? interp(ch, grid) : null;
+    });
+    const rpm = series[0] || new Float64Array(n);
+
+    const head = document.createElement("div");
+    head.className = "ro-head";
+    head.innerHTML = `<div class="ro-head-top"><span class="ro-head-title">Engine Speed — drag to scrub</span>
+        <span class="ro-time" data-time>—</span></div><div class="ro-chart"></div>`;
+    container.appendChild(head);
+
+    const gridWrap = document.createElement("div");
+    gridWrap.className = "ro-grid";
+    gridWrap.innerHTML = READOUT.map((spec, i) =>
+      `<div class="ro-tile" data-i="${i}"><div class="ro-label">${spec.label}</div>
+         <div class="ro-val"><span data-val>—</span><span class="ro-unit" data-unit></span></div></div>`).join("");
+    container.appendChild(gridWrap);
+
+    const timeEl = head.querySelector("[data-time]");
+    const tiles = READOUT.map((spec, i) => {
+      const t = gridWrap.querySelector(`[data-i="${i}"]`);
+      return { spec, el: t, val: t.querySelector("[data-val]"), unit: t.querySelector("[data-unit]") };
+    });
+
+    function update(idx) {
+      if (idx == null || idx < 0 || idx >= n) return;
+      timeEl.textContent = fmtMS(grid[idx]);
+      tiles.forEach((t, i) => {
+        const arr = series[i];
+        if (!arr) { t.val.textContent = "—"; t.unit.textContent = ""; t.el.className = "ro-tile"; return; }
+        const raw = arr[idx];
+        let disp = raw, unit = t.spec.unit || "", cls = "";
+        if (t.spec.fuel) { disp = Units.fuelFromKpa(raw); unit = Units.fuelLabel(); cls = t.spec.warn(disp, raw / Units.KPA_PER_PSI) || ""; }
+        else if (t.spec.warn) cls = t.spec.warn(raw) || "";
+        t.val.textContent = disp.toFixed(t.spec.dec);
+        t.unit.textContent = unit;
+        t.el.className = "ro-tile" + (cls ? " " + cls : "");
+      });
+    }
+
+    const body = head.querySelector(".ro-chart");
+    const opts = {
+      width: body.clientWidth || 900, height: 168,
+      cursor: { points: { size: 7 }, drag: { x: false, y: false }, y: false },
+      scales: { x: { time: false } },
+      legend: { show: false },
+      axes: [
+        { stroke: cssVar("--chart-axis", "#64748b"), grid: { stroke: cssVar("--chart-grid", "rgba(148,163,184,0.08)") },
+          ticks: { stroke: cssVar("--chart-grid", "rgba(148,163,184,0.15)") },
+          values: (u, vals) => vals.map(fmtMS), font: "11px system-ui",
+          label: "Time (m:s)", labelFont: "600 11px system-ui", labelSize: 24 },
+        { stroke: cssVar("--chart-axis", "#64748b"), grid: { stroke: cssVar("--chart-grid", "rgba(148,163,184,0.06)") },
+          ticks: { show: false }, size: 58, font: "11px system-ui",
+          label: "Engine Speed (RPM)", labelFont: "600 11px system-ui", labelSize: 24,
+          values: (u, vals) => vals.map(v => Math.round(v).toLocaleString()) },
+      ],
+      series: [{}, { stroke: "#38bdf8", width: 1.6, fill: gradientFill("#38bdf8"), points: { show: false } }],
+      hooks: { setCursor: [u => { if (u.cursor.idx != null) update(u.cursor.idx); }] },
+    };
+    readoutChart = new uPlot(opts, [grid, rpm], body);
+    update(Math.floor(n / 2));   // default: middle of the run
+    const w = body.clientWidth; if (w) readoutChart.setSize({ width: w, height: 168 });
+  }
+
   function resize() {
     charts.forEach(u => {
       const w = u.root.parentElement.clientWidth;
       if (w && Math.abs(w - u.width) > 2) u.setSize({ width: w, height: CH_H });
     });
+    if (readoutChart) {
+      const w = readoutChart.root.parentElement.clientWidth;
+      if (w && Math.abs(w - readoutChart.width) > 2) readoutChart.setSize({ width: w, height: 168 });
+    }
   }
   global.addEventListener("resize", () => { clearTimeout(resize._t); resize._t = setTimeout(resize, 120); });
 
@@ -334,5 +433,5 @@
     });
   }
 
-  global.Charts = { build, resize, setPrintMode };
+  global.Charts = { build, buildReadout, resize, setPrintMode };
 })(window);

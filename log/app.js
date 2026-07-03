@@ -239,6 +239,8 @@
   }
 
   // ---------- render ----------
+  let viewMode = localStorage.getItem("log-view") === "readout" ? "readout" : "charts";
+
   function render() {
     document.body.classList.toggle("has-logs", logs.length > 0);
     document.body.classList.toggle("home", home || active < 0);
@@ -246,9 +248,32 @@
     if (active >= 0 && !home) {
       const e = logs[active];
       renderHeader(e); renderKpis(e); renderFlags(e);
-      Charts.build(e.log, e.seg, $("#charts"));
+      renderView(e);
     }
   }
+
+  // Charts (trends) vs Readout (point-in-time) toggle, above the charts.
+  function renderView(e) {
+    const t = $("#viewToggle");
+    if (t) t.innerHTML =
+      `<button class="vt-btn${viewMode === "charts" ? " on" : ""}" data-view="charts">📈 Charts</button>
+       <button class="vt-btn${viewMode === "readout" ? " on" : ""}" data-view="readout">🎯 Readout</button>`;
+    const charts = $("#charts"), readout = $("#readout");
+    if (viewMode === "readout") {
+      charts.style.display = "none"; readout.style.display = "block";
+      Charts.buildReadout(e.log, e.seg, readout);
+    } else {
+      readout.style.display = "none"; charts.style.display = "";
+      Charts.build(e.log, e.seg, charts);
+    }
+  }
+  document.addEventListener("click", ev => {
+    const b = ev.target.closest("#viewToggle [data-view]"); if (!b) return;
+    const v = b.getAttribute("data-view");
+    if (v === viewMode || active < 0 || home) return;
+    viewMode = v; localStorage.setItem("log-view", v);
+    renderView(logs[active]);
+  });
 
   function renderTabs() {
     const tabs = $("#tabs"); tabs.innerHTML = "";
