@@ -375,11 +375,6 @@
     if (active >= 0 && !home) render();   // rebuild charts so canvas colors follow the theme
   });
 
-  $("#exportBtn").addEventListener("click", () => {
-    if (active < 0 || home) { toast("Open a log first"); return; }
-    window.print();
-  });
-
   // ---------- passcode gate (private shared library) ----------
   let gateEl = null, gateShown = false;
   function buildGate() {
