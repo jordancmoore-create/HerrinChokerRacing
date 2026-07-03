@@ -392,8 +392,8 @@
     const body = head.querySelector(".ro-chart");
     const opts = {
       width: body.clientWidth || 900, height: 168,
-      cursor: { points: { size: 7 }, drag: { x: false, y: false }, y: false },
-      scales: { x: { time: false } },
+      cursor: { show: false },   // custom playhead + pointer handling instead (touch-friendly)
+      scales: { x: { time: false, range: [0, grid[n - 1]] } },   // no edge padding → playhead aligns
       legend: { show: false },
       axes: [
         { stroke: cssVar("--chart-axis", "#64748b"), grid: { stroke: cssVar("--chart-grid", "rgba(148,163,184,0.08)") },
@@ -406,11 +406,34 @@
           values: (u, vals) => vals.map(v => Math.round(v).toLocaleString()) },
       ],
       series: [{}, { stroke: "#38bdf8", width: 1.6, fill: gradientFill("#38bdf8"), points: { show: false } }],
-      hooks: { setCursor: [u => { if (u.cursor.idx != null) update(u.cursor.idx); }] },
     };
     readoutChart = new uPlot(opts, [grid, rpm], body);
-    update(Math.floor(n / 2));   // default: middle of the run
-    const w = body.clientWidth; if (w) readoutChart.setSize({ width: w, height: 168 });
+    const w0 = body.clientWidth; if (w0) readoutChart.setSize({ width: w0, height: 168 });
+
+    // Custom playhead + pointer scrubbing — works for mouse hover AND touch drag.
+    // (uPlot's own cursor gets pre-empted by iOS text selection on touch-drag.)
+    const over = readoutChart.over;
+    over.style.touchAction = "none";
+    const playhead = document.createElement("div");
+    playhead.className = "ro-playhead";
+    over.appendChild(playhead);
+    let selIdx = Math.floor(n / 2), down = false;
+    function moveTo(idx) {
+      selIdx = Math.max(0, Math.min(n - 1, idx));
+      // percentage so CSS positions it correctly whatever the plot width is / whenever it settles
+      playhead.style.left = (n > 1 ? 100 * selIdx / (n - 1) : 0) + "%";
+      update(selIdx);
+    }
+    function idxAt(clientX) {
+      const r = over.getBoundingClientRect();
+      const frac = r.width ? (clientX - r.left) / r.width : 0;
+      return Math.round(Math.max(0, Math.min(1, frac)) * (n - 1));
+    }
+    over.addEventListener("pointerdown", e => { down = true; try { over.setPointerCapture(e.pointerId); } catch (x) {} moveTo(idxAt(e.clientX)); e.preventDefault(); });
+    over.addEventListener("pointermove", e => { if (down || e.pointerType === "mouse") moveTo(idxAt(e.clientX)); });
+    over.addEventListener("pointerup", () => { down = false; });
+    readoutChart._reposition = () => moveTo(selIdx);
+    moveTo(selIdx);   // default: middle of the run (% left → correct at any width)
   }
 
   function resize() {
@@ -420,7 +443,7 @@
     });
     if (readoutChart) {
       const w = readoutChart.root.parentElement.clientWidth;
-      if (w && Math.abs(w - readoutChart.width) > 2) readoutChart.setSize({ width: w, height: 168 });
+      if (w && Math.abs(w - readoutChart.width) > 2) { readoutChart.setSize({ width: w, height: 168 }); if (readoutChart._reposition) readoutChart._reposition(); }
     }
   }
   global.addEventListener("resize", () => { clearTimeout(resize._t); resize._t = setTimeout(resize, 120); });

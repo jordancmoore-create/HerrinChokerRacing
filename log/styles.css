@@ -23,6 +23,7 @@ html[data-theme="light"] .hist-note{color:#b45309;background:rgba(180,83,9,.09);
 html[data-theme="light"] .chip-note{background:rgba(180,83,9,.1);border-color:rgba(180,83,9,.35);color:#92400e}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
+html{overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{
   font:14px/1.5 "Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   color:var(--ink);
@@ -220,8 +221,9 @@ body:not(.has-logs) .tabs{display:none}
 .vt-btn{background:transparent;border:none;color:var(--ink);padding:8px 18px;font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
 .vt-btn.on{background:rgba(var(--accent-rgb),.14);color:var(--accent)}
 .vt-btn:not(.on):hover{background:rgba(255,255,255,.05)}
-.readout{display:none}
+.readout{display:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .ro-head{background:var(--panel);border:1px solid var(--panel-bd);border-radius:14px;padding:10px 12px 8px;box-shadow:var(--shadow);margin-bottom:14px}
+.ro-playhead{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--accent);pointer-events:none;z-index:3;box-shadow:0 0 5px rgba(var(--accent-rgb),.7)}
 .ro-head-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .ro-head-title{font-weight:650}
 .ro-time{font-variant-numeric:tabular-nums;font-weight:700;color:var(--accent);font-size:15px}
