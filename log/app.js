@@ -247,7 +247,7 @@
     renderTabs();
     if (active >= 0 && !home) {
       const e = logs[active];
-      renderHeader(e); renderKpis(e); renderFlags(e);
+      renderHeader(e); renderKpis(e); renderFlags(e); renderTrends(e);
       renderView(e);
     }
   }
@@ -318,6 +318,33 @@
         <div class="kpi-label">${k.label}</div>
         <div class="kpi-value">${k.value}<span class="kpi-unit">${k.unit}</span></div>
       </div>`).join("");
+  }
+
+  // Cross-log trends — compares the open log against the rest of the library of
+  // the SAME type (race↔race, testing↔testing). Hidden until there are ≥2 to compare.
+  function renderTrends(e) {
+    const sec = $("#trends"), lab = $("#flagsLabel");
+    if (!sec) return;
+    const cm = historyMeta.find(m => m.id === e.id);
+    const grp = cm && cm.cls && cm.cls.group === "race" ? "race" : "testing";
+    const comparable = historyMeta
+      .filter(m => m.stats && (m.cls && m.cls.group === "race" ? "race" : "testing") === grp)
+      .sort((a, b) => (a.logTime || a.added || a.uploadedAt || 0) - (b.logTime || b.added || b.uploadedAt || 0));
+    const res = Analysis.trends(comparable, e.id);
+
+    if (!res.enough) {   // nothing to compare against → keep the single-run view clean
+      sec.style.display = "none"; sec.innerHTML = "";
+      if (lab) lab.style.display = "none";
+      return;
+    }
+    if (lab) lab.style.display = "block";
+    const type = grp === "race" ? "race" : "testing";
+    const rows = res.items.length
+      ? res.items.map(t => `<div class="trend-row trend-${t.sev}"><span class="tr-ic">${t.ic}</span>
+          <div><span class="trend-tag">${esc(t.tag)}</span><span class="trend-msg">${esc(t.msg)}</span></div></div>`).join("")
+      : `<div class="trend-row trend-ok"><span class="tr-ic">✓</span><div><span class="trend-msg">No adverse trends across your last ${res.n} ${type} runs.</span></div></div>`;
+    sec.style.display = "block";
+    sec.innerHTML = `<div class="scope-label">Across your last ${res.n} ${type} logs · the bigger picture</div>${rows}`;
   }
 
   function renderFlags(e) {

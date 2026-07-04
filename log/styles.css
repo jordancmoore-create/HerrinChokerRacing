@@ -199,6 +199,22 @@ body:not(.has-logs) .tabs{display:none}
 .flag-msg{font-size:13px;margin-top:2px}
 .li{padding:4px 0;font-size:13px}
 
+/* ---- scope labels + cross-log trends ---- */
+.scope-label{margin:2px 2px 11px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.trends{margin-bottom:22px}
+.trend-row{display:flex;gap:11px;align-items:flex-start;padding:11px 12px;border-radius:12px;margin-bottom:9px;
+  background:rgba(255,255,255,.02);border:1px solid var(--panel-bd)}
+.trend-row:last-child{margin-bottom:0}
+.tr-ic{font-size:14px;line-height:1.45;flex:none;width:16px;text-align:center}
+.trend-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+  padding:1px 8px;border-radius:999px;margin-right:8px}
+.trend-msg{font-size:13px;line-height:1.5}
+.trend-crit{border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.08)}
+.trend-crit .tr-ic{color:var(--crit)} .trend-crit .trend-tag{background:rgba(248,113,113,.16);color:var(--crit)}
+.trend-warn{border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.07)}
+.trend-warn .tr-ic{color:var(--warn)} .trend-warn .trend-tag{background:rgba(251,191,36,.16);color:var(--warn)}
+.trend-ok .tr-ic{color:var(--ok)} .trend-ok .trend-tag{background:rgba(52,211,153,.16);color:var(--ok)}
+
 /* ---- charts ---- */
 .charts{display:grid;gap:12px}
 .charts-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:2px}

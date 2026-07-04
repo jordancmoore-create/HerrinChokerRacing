@@ -267,5 +267,82 @@
     return s;
   }
 
-  global.Analysis = { segment, flags, kpis, summaryStats, resample, ECT_OPT, ECT_COLD };
+  // ---- cross-log trends (reads stored summaryStats; no file reparse) ----
+  // Each metric: how to read it, when it's a "breach", and which way is bad
+  // (worse:+1 = higher is bad, -1 = lower is bad).
+  const TREND_METRICS = [
+    { key: "peakIdc", label: "Injector duty", dg: 0, unit: "%", worse: +1,
+      breach: v => v >= 90, crit: v => v >= 100, breachTxt: "over 90%", extreme: "max" },
+    { key: "minFuelPLoad", label: "Min fuel pressure", worse: -1,
+      disp: v => Units.fuelFromKpa(v).toFixed(0) + " " + Units.fuelLabel(),
+      breach: v => v < Units.fuelBandKpa()[0], crit: v => v < Units.fuelBandKpa()[0] * 0.8,
+      breachTxt: "below target", extreme: "min" },
+    { key: "coolantAvg", label: "Coolant", dg: 0, unit: "°C", worse: -1,
+      breach: v => v < ECT_COLD, crit: () => false, breachTxt: "below " + ECT_COLD + "°C" },
+    { key: "voltMin", label: "Voltage", dg: 1, unit: " V", worse: -1,
+      breach: v => v < VSAG, crit: () => false, breachTxt: "under " + VSAG + " V" },
+    { key: "peakRpm", label: "Peak RPM", worse: +1, noDir: true,
+      disp: v => Math.round(v).toLocaleString(), extreme: "max",
+      extremeTxt: "highest logged — watch over-rev vs the prop" },
+  ];
+
+  // series: comparable library metas [{id, logTime, stats}] sorted oldest→newest,
+  // INCLUDING the open log. currentId = the open log's id.
+  function trends(series, currentId) {
+    const S = (series || []).filter(s => s && s.stats);
+    const N = S.length;
+    if (N < 2) return { enough: false, n: N, items: [] };
+    const cur = S.find(s => s.id === currentId) || S[N - 1];
+    const dv = (m, v) => m.disp ? m.disp(v) : (v.toFixed(m.dg || 0) + (m.unit || ""));
+    const items = [];
+
+    TREND_METRICS.forEach(m => {
+      const arr = S.map(s => s.stats[m.key]).filter(v => typeof v === "number" && isFinite(v));
+      if (arr.length < 2) return;
+      const curV = (cur.stats && isFinite(cur.stats[m.key])) ? cur.stats[m.key] : null;
+      let gotDir = false;
+
+      // chronic — breached across most of the set
+      if (m.breach) {
+        const br = arr.filter(m.breach).length;
+        if (br && (br === arr.length || br >= Math.max(3, Math.ceil(0.6 * arr.length)))) {
+          const worst = m.worse > 0 ? max(arr) : min(arr);
+          items.push({ sev: arr.some(m.crit) ? "crit" : "warn", tag: "Chronic", ic: "▲",
+            msg: `${m.label} ${m.breachTxt} in ${br} of ${arr.length} runs — worst ${dv(m, worst)}.` });
+        }
+      }
+
+      // direction — meaningful drift over the most recent runs
+      if (!m.noDir && arr.length >= 3) {
+        const win = arr.slice(-4), first = win[0], last = win[win.length - 1], net = last - first;
+        let step = 0; for (let i = 1; i < win.length; i++) step += Math.sign(win[i] - win[i - 1]) === Math.sign(net) ? 1 : -1;
+        if (Math.abs(net) / (Math.abs(mean(win)) || 1) >= 0.12 && step > 0) {
+          const worsening = Math.sign(net) === m.worse;
+          items.push({ sev: worsening ? "warn" : "ok", tag: worsening ? "Worsening" : "Improving",
+            ic: net < 0 ? "↘" : "↗",
+            msg: `${m.label} ${net < 0 ? "falling" : "rising"}: ${win.map(v => dv(m, v)).join(" → ")} (last ${win.length} runs).` });
+          gotDir = true;
+        }
+      }
+
+      // this run is a fresh extreme (skip if a direction line already covers it)
+      if (!gotDir && m.extreme && curV != null && max(arr) !== min(arr)) {
+        const hi = m.extreme === "max", ext = hi ? max(arr) : min(arr);
+        if (curV === ext)
+          items.push({ sev: "warn", tag: hi ? "New high" : "New low", ic: hi ? "↑" : "↓",
+            msg: m.extremeTxt ? `${m.label} ${dv(m, curV)} — ${m.extremeTxt}.`
+              : `This run's ${m.label.toLowerCase()} (${dv(m, curV)}) is your ${hi ? "highest" : "lowest"} logged.` });
+      }
+    });
+
+    const faults = S.filter(s => s.stats && s.stats.vtecFault).length;
+    if (faults) items.push({ sev: "warn", tag: "Recurring", ic: "⚠",
+      msg: `VTEC fault flagged in ${faults} of ${N} runs — check the solenoid output/wiring.` });
+
+    const rank = { crit: 0, warn: 1, ok: 2 };
+    items.sort((a, b) => rank[a.sev] - rank[b.sev]);
+    return { enough: true, n: N, items: items.slice(0, 6) };
+  }
+
+  global.Analysis = { segment, flags, kpis, summaryStats, trends, resample, ECT_OPT, ECT_COLD };
 })(window);
