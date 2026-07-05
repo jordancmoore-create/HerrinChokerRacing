@@ -7,14 +7,15 @@
 // Deploy marker — a `wrangler deploy` where worker.js is byte-identical to the
 // live version SKIPS publishing changed static assets. Bump this on asset-only
 // changes so the front-end (log/*.js/css/html) actually goes live.
-globalThis.HCR_BUILD = "v20";
+globalThis.HCR_BUILD = "v21";
 
 const INDEX_KEY = "index.json";
+const CLIPS_KEY = "clips.json";
 
-function json(data, status = 200) {
+function json(data, status = 200, cache = "no-store") {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
+    headers: { "content-type": "application/json", "cache-control": cache },
   });
 }
 function authed(passcode, env) {
@@ -53,6 +54,73 @@ async function writeIndex(env, idx) {
   await env.LOGS.put(INDEX_KEY, JSON.stringify(idx), {
     httpMetadata: { contentType: "application/json" },
   });
+}
+
+// ---- Race clips (public homepage video section; writes need the team passcode) ----
+async function readClips(env) {
+  const o = await env.LOGS.get(CLIPS_KEY);
+  if (!o) return [];
+  try { return JSON.parse(await o.text()); } catch { return []; }
+}
+async function writeClips(env, arr) {
+  await env.LOGS.put(CLIPS_KEY, JSON.stringify(arr), { httpMetadata: { contentType: "application/json" } });
+}
+// Pull a YouTube video id + start/end out of a pasted embed/watch/share URL (or a bare id).
+function parseYT(input) {
+  const s = String(input || "").trim();
+  let videoId = "", start = 0, end = 0;
+  let m = s.match(/(?:v=|embed\/|youtu\.be\/|shorts\/)([A-Za-z0-9_-]{6,})/);
+  if (m) videoId = m[1]; else if (/^[A-Za-z0-9_-]{6,}$/.test(s)) videoId = s;
+  m = s.match(/[?&]start=(\d+)/); if (m) start = +m[1];
+  m = s.match(/[?&](?:end|stop)=(\d+)/); if (m) end = +m[1];
+  m = s.match(/[?&]t=(\d+)/); if (m && !start) start = +m[1];
+  return { videoId, start, end };
+}
+
+async function handleClips(request, env, url) {
+  if (!env.LOGS) return json({ error: "storage not configured" }, 503);
+  const method = request.method;
+  const sub = url.pathname.replace(/^\/api\/clips\/?/, "");
+
+  if (method === "GET" && sub === "") {
+    const clips = await readClips(env);
+    clips.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (b.added || 0) - (a.added || 0));
+    return json(clips, 200, "public, max-age=60");
+  }
+  // everything below mutates → require the team passcode
+  if (!authed(accessKey(request, url), env)) return json({ error: "auth required" }, 401);
+
+  if (method === "POST" && sub === "") {
+    let body;
+    try { body = await request.json(); } catch { return json({ error: "Bad JSON" }, 400); }
+    const p = parseYT(body.url || body.videoId || "");
+    const videoId = p.videoId || sanitizeId(body.videoId);
+    if (!videoId) return json({ error: "Couldn't read a YouTube video id" }, 400);
+    const start = Math.max(0, parseInt(body.start ?? p.start, 10) || 0);
+    const end = Math.max(0, parseInt(body.end ?? p.end, 10) || 0);
+    const clip = {
+      id: sanitizeId(body.id || (videoId + "_" + start)),
+      videoId, start, end,
+      title: String(body.title || "").slice(0, 140),
+      date: String(body.date || "").slice(0, 10),
+      added: Date.now(),
+    };
+    const clips = await readClips(env);
+    const next = clips.filter(c => c.id !== clip.id);
+    next.push(clip);
+    await writeClips(env, next);
+    return json({ ok: true, clip });
+  }
+
+  if (method === "POST" && sub === "delete") {
+    let body;
+    try { body = await request.json(); } catch { return json({ error: "Bad JSON" }, 400); }
+    const clips = await readClips(env);
+    await writeClips(env, clips.filter(c => c.id !== sanitizeId(body.id)));
+    return json({ ok: true });
+  }
+
+  return json({ error: "Not found" }, 404);
 }
 
 async function handleApi(request, env, url) {
@@ -144,6 +212,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/log/api/")) return handleApi(request, env, url);
+    if (url.pathname === "/api/clips" || url.pathname.startsWith("/api/clips/")) return handleClips(request, env, url);
     return env.ASSETS.fetch(request);   // static team site + /log app
   },
 };

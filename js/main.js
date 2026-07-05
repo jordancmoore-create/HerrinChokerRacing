@@ -85,3 +85,25 @@ function updateRaceSchedule() {
   bar.hidden = false;
 }
 updateRaceSchedule();
+
+// ── Race clips (rendered from the clips store: GET /api/clips) ────────────────
+(function () {
+  const box = document.getElementById('clips');
+  if (!box) return;
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  fetch('/api/clips').then(r => r.ok ? r.json() : []).then(clips => {
+    if (!Array.isArray(clips) || !clips.length) {
+      box.classList.add('vids-empty');
+      box.innerHTML = '<p class="vids-note">Race clips will appear here through the season. '
+        + '<a href="https://www.youtube.com/@HydroplaneRacingLeague" target="_blank">Watch live on HRL →</a></p>';
+      return;
+    }
+    box.innerHTML = clips.map(c => {
+      const q = [c.start ? 'start=' + c.start : '', c.end ? 'end=' + c.end : ''].filter(Boolean).join('&');
+      const src = 'https://www.youtube.com/embed/' + encodeURIComponent(c.videoId) + (q ? '?' + q : '');
+      const cap = c.title ? '<figcaption class="vid-cap">' + esc(c.title) + '</figcaption>' : '';
+      return '<figure class="vid-item"><div class="vid"><iframe src="' + src + '" title="'
+        + esc(c.title || 'Race clip') + '" allowfullscreen loading="lazy"></iframe></div>' + cap + '</figure>';
+    }).join('');
+  }).catch(() => { });
+})();

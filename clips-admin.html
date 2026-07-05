@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Race Clips — Herrin Choker Racing #38</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{--red:#8b1a1a;--red-bright:#a4222b;--black:#0c0c0d;--ink:#141416;--gold:#d9a93e;--gold-lt:#f0c860;--cream:#f6f1ea;--muted:#9a9094;--bd:rgba(139,26,26,.35)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--black);color:var(--cream);font-family:'Barlow',sans-serif;line-height:1.5;padding:24px 16px}
+  .wrap{max-width:640px;margin:0 auto}
+  .cond{font-family:'Barlow Condensed',sans-serif}
+  h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.04em;font-size:26px;text-transform:uppercase}
+  h1 b{color:var(--gold-lt)}
+  .sub{color:var(--muted);font-size:14px;margin:4px 0 22px}
+  a{color:var(--gold-lt)}
+  label{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--gold-lt);margin:14px 0 6px}
+  input,button{font-family:'Barlow',sans-serif;font-size:15px}
+  input{width:100%;background:#1b1416;border:1px solid var(--bd);color:var(--cream);border-radius:9px;padding:11px 12px}
+  input:focus{outline:none;border-color:var(--gold)}
+  .row{display:flex;gap:10px}.row>div{flex:1}
+  .btn{background:var(--red);border:1px solid var(--red-bright);color:var(--cream);border-radius:9px;padding:11px 18px;font-weight:600;cursor:pointer;letter-spacing:.04em}
+  .btn:hover{background:var(--red-bright)}
+  .btn.full{width:100%;margin-top:16px}
+  .btn.ghost{background:transparent;border-color:var(--bd);color:var(--muted);padding:6px 12px;font-size:13px}
+  .card{border:1px solid var(--bd);border-radius:12px;padding:18px;margin-top:18px;background:#120e0f}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:5px}
+  .msg{min-height:20px;font-size:14px;margin-top:12px}
+  .msg.ok{color:#7ac77a}.msg.err{color:#e08a8a}
+  .clip{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--bd)}
+  .clip:first-child{border-top:none}
+  .clip img{width:100px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;flex:none}
+  .clip .t{flex:1;min-width:0}
+  .clip .t b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis}
+  .clip .t span{color:var(--muted);font-size:12.5px}
+  .gate{max-width:340px;margin:12vh auto 0;text-align:center}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="gate" class="gate">
+    <h1><b>38</b> Race Clips</h1>
+    <p class="sub">Herrin Choker Racing · team passcode required</p>
+    <input id="gateInput" type="password" placeholder="Team passcode" autocomplete="current-password">
+    <button class="btn full" id="gateBtn">Unlock</button>
+    <div class="msg err" id="gateErr"></div>
+  </div>
+
+  <div id="app" class="hidden">
+    <h1><b>38</b> Race Clips</h1>
+    <p class="sub">Paste a clip URL from the log tool (or any YouTube link) and it goes live on <a href="/" target="_blank">herrinchoker.ca</a>. <a href="#" id="lock">lock</a></p>
+
+    <div class="card">
+      <label for="url">Clip URL</label>
+      <input id="url" placeholder="https://www.youtube.com/embed/VIDEO?start=10823&end=11442">
+      <div class="hint">Paste the embed URL the log tool prints. A normal youtube.com/watch link works too — add the start/end below if it doesn't include them.</div>
+      <div class="row">
+        <div><label for="start">Start (sec)</label><input id="start" inputmode="numeric" placeholder="optional"></div>
+        <div><label for="end">End (sec)</label><input id="end" inputmode="numeric" placeholder="optional"></div>
+      </div>
+      <label for="title">Label</label>
+      <input id="title" placeholder="Brockville · Formule F · Q-3B">
+      <label for="date">Race date</label>
+      <input id="date" type="date">
+      <button class="btn full" id="addBtn">Add clip</button>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="card">
+      <label style="margin-top:0">Current clips</label>
+      <div id="list"><p class="hint">Loading…</p></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const KEY = "hcr-clip-key";
+function b64(s){ return btoa(String.fromCharCode(...new TextEncoder().encode(s))); }
+function hdrs(){ return { "content-type":"application/json", "x-access-key": b64(localStorage.getItem(KEY)||"") }; }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function showApp(){ $("#gate").classList.add("hidden"); $("#app").classList.remove("hidden"); load(); }
+if (localStorage.getItem(KEY)) showApp();
+
+$("#gateBtn").onclick = () => {
+  const v = $("#gateInput").value.trim(); if (!v) return;
+  localStorage.setItem(KEY, v); $("#gateErr").textContent = ""; showApp();   // verified on first write
+};
+$("#gateInput").addEventListener("keydown", e => { if (e.key === "Enter") $("#gateBtn").click(); });
+$("#lock").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY); location.reload(); };
+
+async function load(){
+  const list = $("#list");
+  try {
+    const clips = await (await fetch("/api/clips",{cache:"no-store"})).json();
+    if (!clips.length){ list.innerHTML = '<p class="hint">No clips yet.</p>'; return; }
+    list.innerHTML = clips.map(c => `<div class="clip">
+      <img src="https://i.ytimg.com/vi/${esc(c.videoId)}/mqdefault.jpg" alt="">
+      <div class="t"><b>${esc(c.title||c.videoId)}</b><span>${esc(c.date||"")} · ${c.start||0}s–${c.end||"end"}</span></div>
+      <button class="btn ghost" data-del="${esc(c.id)}">Remove</button></div>`).join("");
+    list.querySelectorAll("[data-del]").forEach(b => b.onclick = () => del(b.getAttribute("data-del")));
+  } catch { list.innerHTML = '<p class="hint">Couldn\'t load clips.</p>'; }
+}
+
+$("#addBtn").onclick = async () => {
+  const msg = $("#msg"); msg.className = "msg"; msg.textContent = "Saving…";
+  const body = { url: $("#url").value.trim(), title: $("#title").value.trim(), date: $("#date").value };
+  const s = $("#start").value.trim(), e = $("#end").value.trim();
+  if (s) body.start = +s; if (e) body.end = +e;
+  if (!body.url){ msg.className="msg err"; msg.textContent="Paste a clip URL first."; return; }
+  try {
+    const r = await fetch("/api/clips", { method:"POST", headers:hdrs(), body:JSON.stringify(body) });
+    if (r.status === 401){ msg.className="msg err"; msg.textContent="Wrong passcode — click lock and re-enter."; return; }
+    const d = await r.json();
+    if (!r.ok){ msg.className="msg err"; msg.textContent = d.error || "Failed."; return; }
+    msg.className="msg ok"; msg.textContent="Added ✓ live on the site.";
+    ["url","title","start","end"].forEach(id => $("#"+id).value = "");
+    load();
+  } catch { msg.className="msg err"; msg.textContent="Network error."; }
+};
+
+async function del(id){
+  if (!confirm("Remove this clip from the site?")) return;
+  const r = await fetch("/api/clips/delete", { method:"POST", headers:hdrs(), body:JSON.stringify({ id }) });
+  if (r.status === 401){ $("#msg").className="msg err"; $("#msg").textContent="Wrong passcode."; return; }
+  load();
+}
+</script>
+</body>
+</html>
