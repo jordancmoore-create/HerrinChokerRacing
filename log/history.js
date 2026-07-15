@@ -150,8 +150,7 @@
     const racing = records.filter(r => r.cls && r.cls.group === "race");
 
     // stats: overall + testing vs race split
-    let html = `<div class="history-head"><h2>Historical stats</h2>
-      <button class="link-btn" data-clear="1">Clear all</button></div>`;
+    let html = `<div class="history-head"><h2>Historical stats</h2></div>`;
     html += renderStats(records);
     html += `<div class="hstats-split">
        <div class="hsplit"><span class="hsplit-h">Races</span>${miniStats(aggregate(racing))}</div>

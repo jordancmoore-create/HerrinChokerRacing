@@ -306,7 +306,7 @@ body.modal-open{overflow:hidden}
 
 /* toast */
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
-  background:#1e293b;border:1px solid var(--panel-bd);color:var(--ink);padding:11px 18px;border-radius:12px;
+  background:#1e293b;border:1px solid var(--panel-bd);color:#f1f5f9;padding:11px 18px;border-radius:12px;
   opacity:0;pointer-events:none;transition:.25s;box-shadow:var(--shadow);z-index:50}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
