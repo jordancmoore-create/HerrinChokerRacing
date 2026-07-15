@@ -193,7 +193,7 @@
       const opt = (v, sel, label) => `<option value="${v}"${sel ? " selected" : ""}>${label || v}</option>`;
       const evOpts = History.SCHEDULE.map(e => opt(e.id, cls0.event === e.id, e.name)).join("");
       const dayOpts = ["Fri", "Sat", "Sun"].map(d => opt(d, cls0.day === d)).join("");
-      const heatOpts = [1, 2].map(h => opt(h, +cls0.heat === h, "Heat " + h)).join("");
+      const heatOpts = History.HEAT_OPTIONS.map(h => opt(h, String(cls0.heat) === String(h), History.heatName(h))).join("");
 
       const m = el("div", "modal open");
       m.innerHTML = `<div class="modal-card">
@@ -230,7 +230,7 @@
       m.querySelector(".modal-cancel").onclick = () => close(null);
       m.querySelector(".modal-save").onclick = () => {
         const cls = group === "race"
-          ? { group: "race", event: m.querySelector('[data-f="event"]').value, day: m.querySelector('[data-f="day"]').value, heat: +m.querySelector('[data-f="heat"]').value, auto: false }
+          ? { group: "race", event: m.querySelector('[data-f="event"]').value, day: m.querySelector('[data-f="day"]').value, heat: History.parseHeat(m.querySelector('[data-f="heat"]').value), auto: false }
           : { group: "testing", auto: false };
         close({ cls, note: (m.querySelector('[data-f="note"]').value || "").trim() });
       };

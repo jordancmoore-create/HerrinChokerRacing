@@ -17,6 +17,14 @@
 
   const eventById = id => SCHEDULE.find(e => e.id === id) || null;
 
+  // heat values: numeric heats (1, 2, …) plus a "Final". Rank sorts Final last
+  // chronologically; heatName is the group heading, heatTag the compact card label.
+  const HEAT_OPTIONS = [1, 2, "Final"];
+  function parseHeat(v) { return v === "Final" ? "Final" : +v; }
+  function heatRank(h) { return String(h) === "Final" ? 99 : (+h || 0); }
+  function heatName(h) { return String(h) === "Final" ? "Final" : "Heat " + h; }
+  function heatTag(h) { return String(h) === "Final" ? "Final" : "H" + (h || "?"); }
+
   // parse the log's datetime from its title/name → epoch ms (or null)
   function parseLogTime(title, name) {
     const src = (title || "") + " " + (name || "");
@@ -45,7 +53,7 @@
   function clsLabel(cls) {
     if (!cls || cls.group !== "race") return "Testing";
     const ev = eventById(cls.event);
-    return (ev ? ev.name : "Race") + " · " + (cls.day || "?") + " · H" + (cls.heat || "?");
+    return (ev ? ev.name : "Race") + " · " + (cls.day || "?") + " · " + heatTag(cls.heat);
   }
 
   function fmtDateRange(ev) {
@@ -159,10 +167,11 @@
       if (!evRecs.length) return;
       const days = groupBy(evRecs, r => r.cls.day || "?");
       let body = "";
-      Object.keys(days).sort(daySort).forEach(day => {
+      // most recent first: latest day on top, latest heat (Final → H2 → H1) on top
+      Object.keys(days).sort((a, b) => daySort(b, a)).forEach(day => {
         const heats = groupBy(days[day], r => (r.cls.heat || "?"));
-        Object.keys(heats).sort().forEach(h => {
-          body += `<div class="lib-grp"><div class="lib-grp-h">${dayFull(day)} · Heat ${h}</div>${cardsGrid(heats[h])}</div>`;
+        Object.keys(heats).sort((a, b) => heatRank(b) - heatRank(a)).forEach(h => {
+          body += `<div class="lib-grp"><div class="lib-grp-h">${dayFull(day)} · ${heatName(h)}</div>${cardsGrid(heats[h])}</div>`;
         });
       });
       const meta = fmtDateRange(ev) + (ev.loc ? " · " + ev.loc : "");
@@ -206,7 +215,7 @@
     const cls = rec.cls || { group: "testing" };
     const evOpts = SCHEDULE.map(e => `<option value="${e.id}" ${cls.event === e.id ? "selected" : ""}>${e.name}</option>`).join("");
     const dayOpts = ["Fri", "Sat", "Sun"].map(d => `<option ${cls.day === d ? "selected" : ""}>${d}</option>`).join("");
-    const heatOpts = [1, 2].map(h => `<option value="${h}" ${(+cls.heat) === h ? "selected" : ""}>Heat ${h}</option>`).join("");
+    const heatOpts = HEAT_OPTIONS.map(h => `<option value="${h}" ${String(cls.heat) === String(h) ? "selected" : ""}>${heatName(h)}</option>`).join("");
     const isRace = cls.group === "race";
     return `<div class="hist-editor" data-for="${esc(rec.id)}">
       <select data-f="group">
@@ -250,7 +259,7 @@
         const ed = save.closest(".hist-editor");
         const g = ed.querySelector('[data-f="group"]').value;
         let cls;
-        if (g === "race") cls = { group: "race", event: ed.querySelector('[data-f="event"]').value, day: ed.querySelector('[data-f="day"]').value, heat: +ed.querySelector('[data-f="heat"]').value, auto: false };
+        if (g === "race") cls = { group: "race", event: ed.querySelector('[data-f="event"]').value, day: ed.querySelector('[data-f="day"]').value, heat: parseHeat(ed.querySelector('[data-f="heat"]').value), auto: false };
         else cls = { group: "testing", auto: false };
         const note = (ed.querySelector('[data-f="note"]').value || "").trim();
         handlers.reassign(save.getAttribute("data-save"), cls, note);
@@ -269,5 +278,5 @@
     });
   }
 
-  global.History = { SCHEDULE, parseLogTime, classify, clsLabel, render, aggregate };
+  global.History = { SCHEDULE, HEAT_OPTIONS, parseHeat, heatName, parseLogTime, classify, clsLabel, render, aggregate };
 })(window);
