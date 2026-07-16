@@ -52,6 +52,7 @@ Photos are referenced at root level in HTML/CSS for now. Once moved to `images/`
   - Instagram feed — official Instagram API (professional account); long-lived token pasted once in admin, stored in R2 (`ig-token.json`), auto-renewed weekly by a daily cron (wrangler.jsonc `triggers`); feed cached in R2 (`instagram.json`, 30 min TTL, keeps old posts if a fetch fails); homepage section hidden until connected
   - Race clips — YouTube embeds from `/api/clips` (see worker.js)
 - Driver card — Adam Carruthers, "AC" avatar placeholder (no headshot yet)
+- Sponsors — Amazon, Princess Auto, Coors Light logos (`images/sponsors/`), white chips linking to each sponsor's site
 - Social — Facebook linked; Instagram placeholder (`https://instagram.com/YOURHANDLE`)
 - Footer
 
@@ -65,7 +66,6 @@ Photos are referenced at root level in HTML/CSS for now. Once moved to `images/`
 - **GitHub → Cloudflare Pages auto-deploy** — repo exists, connect it in Cloudflare dashboard (Workers & Pages → Create → Pages → Connect Git)
 - **Instagram token** — one-time Meta developer setup, then paste the token in `/clips-admin.html` (step-by-step instructions are in that page's "How to get the token" section); until then the homepage Instagram section stays hidden
 - **Race results section** — not built; needed once season starts
-- **Sponsor logos** — sponsors section shows Amazon, Princess Auto, and Coors Light as inline-SVG wordmark approximations (`.slot.filled` in `index.html`); swap in official brand assets from the sponsors when available
 - **`git init`** — needs to be run in this folder, then push to HerrinChokerRacing on GitHub
 
 ---
