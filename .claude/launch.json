@@ -6,6 +6,18 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "3838"],
       "port": 3838
+    },
+    {
+      "name": "herrinchoker-worker",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["wrangler", "dev", "--port", "8787"],
+      "port": 8787
+    },
+    {
+      "name": "dreamweaver",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "2626", "--directory", "C:/Users/JordanMoore/Documents/DreamWeaver/DreamWeaverRacing"],
+      "port": 2626
     }
   ]
 }

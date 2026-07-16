@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Race Clips — Herrin Choker Racing #38</title>
+<title>Media Manager — Herrin Choker Racing #38</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -15,15 +15,19 @@
   .cond{font-family:'Barlow Condensed',sans-serif}
   h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.04em;font-size:26px;text-transform:uppercase}
   h1 b{color:var(--gold-lt)}
+  h2{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.06em;font-size:19px;text-transform:uppercase;color:var(--gold-lt)}
   .sub{color:var(--muted);font-size:14px;margin:4px 0 22px}
   a{color:var(--gold-lt)}
   label{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--gold-lt);margin:14px 0 6px}
   input,button{font-family:'Barlow',sans-serif;font-size:15px}
   input{width:100%;background:#1b1416;border:1px solid var(--bd);color:var(--cream);border-radius:9px;padding:11px 12px}
   input:focus{outline:none;border-color:var(--gold)}
+  input[type=file]{padding:9px 12px;cursor:pointer}
+  input[type=file]::file-selector-button{font-family:'Barlow',sans-serif;background:var(--red);border:1px solid var(--red-bright);color:var(--cream);border-radius:7px;padding:6px 12px;margin-right:12px;cursor:pointer}
   .row{display:flex;gap:10px}.row>div{flex:1}
   .btn{background:var(--red);border:1px solid var(--red-bright);color:var(--cream);border-radius:9px;padding:11px 18px;font-weight:600;cursor:pointer;letter-spacing:.04em}
   .btn:hover{background:var(--red-bright)}
+  .btn:disabled{opacity:.55;cursor:default}
   .btn.full{width:100%;margin-top:16px}
   .btn.ghost{background:transparent;border-color:var(--bd);color:var(--muted);padding:6px 12px;font-size:13px}
   .card{border:1px solid var(--bd);border-radius:12px;padding:18px;margin-top:18px;background:#120e0f}
@@ -32,10 +36,19 @@
   .msg.ok{color:#7ac77a}.msg.err{color:#e08a8a}
   .clip{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--bd)}
   .clip:first-child{border-top:none}
-  .clip img{width:100px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;flex:none}
+  .clip img{width:100px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;flex:none;background:#000}
+  .clip img.sq{width:72px;aspect-ratio:1/1}
   .clip .t{flex:1;min-width:0}
-  .clip .t b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis}
+  .clip .t b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .clip .t span{color:var(--muted);font-size:12.5px}
+  .stat{font-size:14px;margin-bottom:4px}
+  .stat b{color:var(--gold-lt)}
+  .stat.err{color:#e08a8a}
+  details{margin-top:14px;border-top:1px solid var(--bd);padding-top:12px}
+  summary{cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--gold-lt)}
+  details ol{margin:10px 0 4px 20px;font-size:14px;color:var(--cream)}
+  details li{margin-bottom:8px}
+  details .hint{margin-top:10px}
   .gate{max-width:340px;margin:12vh auto 0;text-align:center}
   .hidden{display:none}
 </style>
@@ -43,7 +56,7 @@
 <body>
 <div class="wrap">
   <div id="gate" class="gate">
-    <h1><b>38</b> Race Clips</h1>
+    <h1><b>38</b> Media Manager</h1>
     <p class="sub">Herrin Choker Racing · team passcode required</p>
     <input id="gateInput" type="password" placeholder="Team passcode" autocomplete="current-password">
     <button class="btn full" id="gateBtn">Unlock</button>
@@ -51,10 +64,25 @@
   </div>
 
   <div id="app" class="hidden">
-    <h1><b>38</b> Race Clips</h1>
-    <p class="sub">Paste a clip URL from the log tool (or any YouTube link) and it goes live on <a href="/" target="_blank">herrinchoker.ca</a>. <a href="#" id="lock">lock</a></p>
+    <h1><b>38</b> Media Manager</h1>
+    <p class="sub">Photos, race clips and the Instagram feed on <a href="/" target="_blank">herrinchoker.ca</a>. <a href="#" id="lock">lock</a></p>
 
+    <!-- ── PHOTOS ─────────────────────────────────────────────────────────── -->
     <div class="card">
+      <h2>Photos</h2>
+      <label for="pfile">Photo</label>
+      <input id="pfile" type="file" accept="image/*">
+      <div class="hint">Straight from your phone is fine — big photos are resized automatically before upload.</div>
+      <label for="pcap">Caption (optional)</label>
+      <input id="pcap" placeholder="Valleyfield · first heat">
+      <button class="btn full" id="pAddBtn">Add photo</button>
+      <div class="msg" id="pmsg"></div>
+      <div id="plist"><p class="hint">Loading…</p></div>
+    </div>
+
+    <!-- ── RACE CLIPS ─────────────────────────────────────────────────────── -->
+    <div class="card">
+      <h2>Race clips</h2>
       <label for="url">Clip URL</label>
       <input id="url" placeholder="https://www.youtube.com/embed/VIDEO?start=10823&end=11442">
       <div class="hint">Paste the embed URL the log tool prints. A normal youtube.com/watch link works too — add the start/end below if it doesn't include them.</div>
@@ -68,11 +96,27 @@
       <input id="date" type="date">
       <button class="btn full" id="addBtn">Add clip</button>
       <div class="msg" id="msg"></div>
+      <div id="list"><p class="hint">Loading…</p></div>
     </div>
 
+    <!-- ── INSTAGRAM ──────────────────────────────────────────────────────── -->
     <div class="card">
-      <label style="margin-top:0">Current clips</label>
-      <div id="list"><p class="hint">Loading…</p></div>
+      <h2>Instagram feed</h2>
+      <div id="igstat" class="stat" style="margin-top:10px">Checking…</div>
+      <label for="igtok">Access token</label>
+      <input id="igtok" placeholder="Paste the long Instagram access token">
+      <button class="btn full" id="igBtn">Connect Instagram</button>
+      <div class="msg" id="igmsg"></div>
+      <details>
+        <summary>How to get the token (one-time, ~15 min)</summary>
+        <ol>
+          <li>In the Instagram app, make <b>@herrinchokerracing</b> a professional account (free): <i>Settings → Account type and tools → Switch to professional account</i> — pick Creator or Business.</li>
+          <li>Go to <a href="https://developers.facebook.com/apps/" target="_blank">developers.facebook.com/apps</a>, log in with the Facebook account that manages the team, and <b>Create app</b>. Pick the <b>Instagram</b> use case (“API setup with Instagram business login”). Name it anything, e.g. “Herrin Choker Site”.</li>
+          <li>In the app dashboard open <i>Instagram → API setup with Instagram business login</i> → <b>Generate access tokens</b> → add the @herrinchokerracing account and log in when prompted.</li>
+          <li>Copy the long token it shows and paste it above, then hit <b>Connect Instagram</b>.</li>
+        </ol>
+        <div class="hint">The token lasts 60 days — the site renews it automatically every week, so this is a one-time setup. If it ever breaks (e.g. the Instagram password changes), just generate a new token and paste it here again. <a href="#" id="igDisc">Disconnect the feed</a>.</div>
+      </details>
     </div>
   </div>
 </div>
@@ -81,10 +125,12 @@
 const $ = s => document.querySelector(s);
 const KEY = "hcr-clip-key";
 function b64(s){ return btoa(String.fromCharCode(...new TextEncoder().encode(s))); }
-function hdrs(){ return { "content-type":"application/json", "x-access-key": b64(localStorage.getItem(KEY)||"") }; }
+function keyHdr(){ return { "x-access-key": b64(localStorage.getItem(KEY)||"") }; }
+function hdrs(){ return { "content-type":"application/json", ...keyHdr() }; }
 function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function fmtDate(ms){ return ms ? new Date(ms).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}) : ""; }
 
-function showApp(){ $("#gate").classList.add("hidden"); $("#app").classList.remove("hidden"); load(); }
+function showApp(){ $("#gate").classList.add("hidden"); $("#app").classList.remove("hidden"); load(); loadPhotos(); igStatus(); }
 if (localStorage.getItem(KEY)) showApp();
 
 $("#gateBtn").onclick = () => {
@@ -94,6 +140,68 @@ $("#gateBtn").onclick = () => {
 $("#gateInput").addEventListener("keydown", e => { if (e.key === "Enter") $("#gateBtn").click(); });
 $("#lock").onclick = e => { e.preventDefault(); localStorage.removeItem(KEY); location.reload(); };
 
+/* ── Photos ─────────────────────────────────────────────────────────────── */
+// Re-encode client-side (max 2000px JPEG) so 8MB phone photos upload fast and
+// HEIC shots from iPhones become plain JPEGs the site can serve.
+async function prepImage(file){
+  try {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    await img.decode();
+    const scale = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    c.getContext("2d").drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(img.src);
+    const blob = await new Promise(res => c.toBlob(res, "image/jpeg", 0.87));
+    if (blob) return blob;
+  } catch { /* fall through — let the worker check the raw file */ }
+  return file;
+}
+
+async function loadPhotos(){
+  const list = $("#plist");
+  try {
+    const photos = await (await fetch("/api/photos",{cache:"no-store"})).json();
+    if (!photos.length){ list.innerHTML = '<p class="hint">No photos yet — the site shows its built-in shots until you add some.</p>'; return; }
+    list.innerHTML = photos.map(p => `<div class="clip">
+      <img class="sq" src="/api/photos/img/${encodeURIComponent(p.id)}" alt="" loading="lazy">
+      <div class="t"><b>${esc(p.caption||"(no caption)")}</b><span>added ${esc(fmtDate(p.added))}</span></div>
+      <button class="btn ghost" data-pdel="${esc(p.id)}">Remove</button></div>`).join("");
+    list.querySelectorAll("[data-pdel]").forEach(b => b.onclick = () => delPhoto(b.getAttribute("data-pdel")));
+  } catch { list.innerHTML = '<p class="hint">Couldn\'t load photos.</p>'; }
+}
+
+$("#pAddBtn").onclick = async () => {
+  const msg = $("#pmsg"), btn = $("#pAddBtn");
+  const file = $("#pfile").files[0];
+  if (!file){ msg.className="msg err"; msg.textContent="Pick a photo first."; return; }
+  msg.className = "msg"; msg.textContent = "Preparing…"; btn.disabled = true;
+  try {
+    const blob = await prepImage(file);
+    msg.textContent = "Uploading…";
+    const fd = new FormData();
+    fd.append("file", blob, "photo.jpg");
+    fd.append("caption", $("#pcap").value.trim());
+    const r = await fetch("/api/photos", { method:"POST", headers:keyHdr(), body:fd });
+    if (r.status === 401){ msg.className="msg err"; msg.textContent="Wrong passcode — click lock and re-enter."; return; }
+    const d = await r.json();
+    if (!r.ok){ msg.className="msg err"; msg.textContent = d.error || "Failed."; return; }
+    msg.className="msg ok"; msg.textContent="Added ✓ live on the site.";
+    $("#pfile").value = ""; $("#pcap").value = "";
+    loadPhotos();
+  } catch { msg.className="msg err"; msg.textContent="Upload failed — check the connection and try again."; }
+  finally { btn.disabled = false; }
+};
+
+async function delPhoto(id){
+  if (!confirm("Remove this photo from the site?")) return;
+  const r = await fetch("/api/photos/delete", { method:"POST", headers:hdrs(), body:JSON.stringify({ id }) });
+  if (r.status === 401){ $("#pmsg").className="msg err"; $("#pmsg").textContent="Wrong passcode."; return; }
+  loadPhotos();
+}
+
+/* ── Race clips ─────────────────────────────────────────────────────────── */
 async function load(){
   const list = $("#list");
   try {
@@ -130,6 +238,50 @@ async function del(id){
   if (r.status === 401){ $("#msg").className="msg err"; $("#msg").textContent="Wrong passcode."; return; }
   load();
 }
+
+/* ── Instagram ──────────────────────────────────────────────────────────── */
+async function igStatus(){
+  const el = $("#igstat");
+  try {
+    const r = await fetch("/api/instagram/status", { headers: keyHdr(), cache:"no-store" });
+    if (r.status === 401){ el.className="stat err"; el.textContent="Wrong passcode — click lock and re-enter."; return; }
+    const d = await r.json();
+    if (!d.configured){ el.className="stat"; el.innerHTML = "Not connected — the site's Instagram section stays hidden until you paste a token below."; return; }
+    let s = `Connected as <b>@${esc(d.username||"?")}</b> · ${d.postCount} post${d.postCount===1?"":"s"} cached`;
+    if (d.feedFetchedAt) s += ` · feed updated ${esc(fmtDate(d.feedFetchedAt))}`;
+    if (d.tokenExpiresAt) s += ` · token auto-renews (current one good to ${esc(fmtDate(d.tokenExpiresAt))})`;
+    el.className = "stat"; el.innerHTML = s;
+    if (d.lastError){ el.innerHTML += `<br><span class="stat err">Last fetch problem: ${esc(d.lastError)}</span>`; }
+  } catch { el.className="stat err"; el.textContent = "Couldn't check the Instagram status."; }
+}
+
+$("#igBtn").onclick = async () => {
+  const msg = $("#igmsg"), btn = $("#igBtn");
+  const token = $("#igtok").value.trim();
+  if (!token){ msg.className="msg err"; msg.textContent="Paste the access token first."; return; }
+  msg.className="msg"; msg.textContent="Checking the token with Instagram…"; btn.disabled = true;
+  try {
+    const r = await fetch("/api/instagram/token", { method:"POST", headers:hdrs(), body:JSON.stringify({ token }) });
+    if (r.status === 401){ msg.className="msg err"; msg.textContent="Wrong passcode — click lock and re-enter."; return; }
+    const d = await r.json();
+    if (!r.ok){ msg.className="msg err"; msg.textContent = d.error || "Failed."; return; }
+    msg.className="msg ok";
+    msg.textContent = `Connected as @${d.username} ✓ — ${d.posts} post${d.posts===1?"":"s"} live on the site.` + (d.feedError ? ` (feed warning: ${d.feedError})` : "");
+    $("#igtok").value = "";
+    igStatus();
+  } catch { msg.className="msg err"; msg.textContent="Network error."; }
+  finally { btn.disabled = false; }
+};
+
+$("#igDisc").onclick = async e => {
+  e.preventDefault();
+  if (!confirm("Disconnect Instagram? The feed section disappears from the site until a new token is added.")) return;
+  const r = await fetch("/api/instagram/disconnect", { method:"POST", headers:hdrs() });
+  const msg = $("#igmsg");
+  if (r.status === 401){ msg.className="msg err"; msg.textContent="Wrong passcode."; return; }
+  msg.className="msg ok"; msg.textContent="Disconnected.";
+  igStatus();
+};
 </script>
 </body>
 </html>

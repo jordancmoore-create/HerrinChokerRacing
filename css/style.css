@@ -113,6 +113,33 @@ section{padding:84px 0;}
 .vids-note{color:var(--muted);font-style:italic;padding:22px 0;}
 .vids-note a{color:var(--gold-lt);font-style:normal;text-decoration:none;white-space:nowrap;}
 
+/* dynamic photo gallery — js/main.js swaps the static grid for admin uploads */
+.media-grid.dyn{grid-template-columns:repeat(4,1fr);}
+.media-grid.dyn .frame{aspect-ratio:1/1;cursor:zoom-in;}
+.media-grid.dyn.g1{grid-template-columns:1fr;}
+.media-grid.dyn.g1 .frame{aspect-ratio:16/9;}
+.media-grid.dyn.g2{grid-template-columns:1fr 1fr;}
+.media-grid.dyn.g2 .frame{aspect-ratio:3/2;}
+.media-grid.dyn.g3{grid-template-columns:repeat(3,1fr);}
+.media-grid.dyn .frame.lead{grid-column:span 2;grid-row:span 2;aspect-ratio:auto;}
+.pcap{position:absolute;left:0;right:0;bottom:0;padding:26px 12px 9px;background:linear-gradient(transparent,rgba(0,0,0,.78));font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--cream);pointer-events:none;}
+
+/* instagram feed strip */
+.ig-block{margin-top:14px;}
+.ig-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:12px;}
+.ig-kicker{font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:.18em;text-transform:uppercase;font-size:13px;color:var(--gold);}
+.ig-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.ig-tile{position:relative;display:block;aspect-ratio:1/1;overflow:hidden;background:var(--ink);border:1px solid rgba(139,26,26,.3);}
+.ig-tile img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease;}
+.ig-tile:hover img{transform:scale(1.05);}
+.ig-badge{position:absolute;top:8px;right:8px;color:#fff;opacity:.92;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));}
+
+/* lightbox (created by js/main.js when a gallery photo is clicked) */
+.lb{position:fixed;inset:0;z-index:99;background:rgba(10,3,3,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;cursor:zoom-out;}
+.lb[hidden]{display:none;}
+.lb img{max-width:min(1100px,100%);max-height:82vh;width:auto;border:1px solid rgba(139,26,26,.5);}
+.lb-cap{margin-top:12px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:14px;color:var(--gold-lt);text-align:center;}
+
 /* ── DRIVER ── */
 .driver{display:grid;grid-template-columns:380px 1fr;gap:0;align-items:end;background:linear-gradient(135deg,var(--red) 0%,#8d0f17 100%);position:relative;overflow:hidden;}
 .driver::before{content:"38";position:absolute;right:-30px;bottom:-80px;font-family:'Barlow Condensed',sans-serif;font-style:italic;font-weight:900;font-size:380px;color:rgba(0,0,0,.13);line-height:.7;}
@@ -135,8 +162,7 @@ section{padding:84px 0;}
 .sponsor-box{border:2px dashed rgba(217,169,62,.4);padding:34px;text-align:center;}
 .sponsor-box .sk{font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-size:14px;margin-bottom:18px;}
 .sponsor-slots{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
-.slot{aspect-ratio:5/3;background:repeating-linear-gradient(45deg,#161113,#161113 10px,#1c1517 10px,#1c1517 20px);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:rgba(217,169,62,.55);border:1px solid rgba(217,169,62,.18);}
-.sponsor-box .sp-note{margin-top:18px;font-size:13px;color:var(--muted);}
+.slot{aspect-ratio:5/3;background:repeating-linear-gradient(45deg,#161113,#161113 10px,#1c1517 10px,#1c1517 20px);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:rgba(217,169,62,.55);border:1px solid rgba(217,169,62,.18);}.sponsor-box .sp-note{margin-top:18px;font-size:13px;color:var(--muted);}
 .sponsor-box .sp-note a{color:var(--gold-lt);}
 
 /* ── FOOTER ── */
@@ -162,6 +188,9 @@ footer{border-top:6px solid var(--red);background:var(--ink);padding:48px 0 36px
   .hero-num{font-size:34vh;right:-6vw;}
   .nextbar .live{margin-left:0;}
   .media-grid{grid-template-columns:1fr;}
+  .media-grid.dyn,.media-grid.dyn.g2,.media-grid.dyn.g3{grid-template-columns:repeat(2,1fr);}
+  .media-grid.dyn .frame.lead{grid-column:1/-1;grid-row:auto;aspect-ratio:16/10;}
+  .ig-grid{grid-template-columns:repeat(2,1fr);}
   .vids{grid-template-columns:1fr;}
   .driver{grid-template-columns:1fr;}
   .driver-photo{max-width:280px;margin:0 auto;}

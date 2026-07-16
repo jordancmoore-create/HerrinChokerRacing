@@ -86,11 +86,72 @@ function updateRaceSchedule() {
 }
 updateRaceSchedule();
 
+// ── Shared helper for the media renderers below ──────────────────────────────
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// ── Photo gallery (admin uploads: GET /api/photos; static grid is the fallback) ─
+function openLightbox(src, cap) {
+  let lb = document.querySelector('.lb');
+  if (!lb) {
+    lb = document.createElement('div');
+    lb.className = 'lb';
+    lb.innerHTML = '<img alt=""><div class="lb-cap"></div>';
+    lb.addEventListener('click', () => { lb.hidden = true; });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.hidden = true; });
+    document.body.appendChild(lb);
+  }
+  lb.querySelector('img').src = src;
+  lb.querySelector('.lb-cap').textContent = cap || '';
+  lb.hidden = false;
+}
+
+(function () {
+  const grid = document.getElementById('gallery');
+  if (!grid) return;
+  fetch('/api/photos').then(r => r.ok ? r.json() : []).then(photos => {
+    if (!Array.isArray(photos) || !photos.length) return;   // keep the static grid
+    const n = photos.length;
+    grid.className = 'media-grid dyn ' + (n === 1 ? 'g1' : n === 2 ? 'g2' : n === 3 ? 'g3' : 'g4');
+    grid.innerHTML = photos.map((p, i) => {
+      const src = '/api/photos/img/' + encodeURIComponent(p.id);
+      const cap = p.caption ? '<figcaption class="pcap">' + esc(p.caption) + '</figcaption>' : '';
+      return '<figure class="frame' + (n >= 4 && i === 0 ? ' lead' : '') + '" data-cap="' + esc(p.caption || '') + '">'
+        + '<img src="' + src + '" alt="' + esc(p.caption || 'Herrin Choker Racing photo') + '" loading="lazy">' + cap + '</figure>';
+    }).join('');
+    grid.querySelectorAll('.frame').forEach(f => {
+      f.addEventListener('click', () => openLightbox(f.querySelector('img').src, f.dataset.cap));
+    });
+  }).catch(() => { });
+})();
+
+// ── Instagram feed (server-cached: GET /api/instagram; hidden until connected) ─
+(function () {
+  const block = document.getElementById('igfeed');
+  if (!block) return;
+  fetch('/api/instagram').then(r => r.ok ? r.json() : null).then(d => {
+    if (!d || !d.configured || !Array.isArray(d.posts) || !d.posts.length) return;
+    if (d.username) {
+      const h = document.getElementById('ighandle');
+      if (h) {
+        h.textContent = '@' + d.username + ' →';
+        h.href = 'https://www.instagram.com/' + encodeURIComponent(d.username) + '/';
+      }
+    }
+    const play = '<svg class="ig-badge" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+    const stack = '<svg class="ig-badge" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h12v12H4z" opacity=".55"/><path d="M8 4h12v12h-2V6H8z"/></svg>';
+    block.querySelector('.ig-grid').innerHTML = d.posts.slice(0, 8).map(p =>
+      '<a class="ig-tile" href="' + esc(p.permalink) + '" target="_blank" rel="noopener">'
+      + '<img src="' + esc(p.img) + '" alt="' + esc(p.caption || 'Instagram post') + '" loading="lazy" referrerpolicy="no-referrer">'
+      + (p.type === 'VIDEO' ? play : p.type === 'CAROUSEL_ALBUM' ? stack : '')
+      + '</a>').join('');
+    block.hidden = false;
+  }).catch(() => { });
+})();
+
 // ── Race clips (rendered from the clips store: GET /api/clips) ────────────────
 (function () {
   const box = document.getElementById('clips');
   if (!box) return;
-  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   fetch('/api/clips').then(r => r.ok ? r.json() : []).then(clips => {
     if (!Array.isArray(clips) || !clips.length) {
       box.classList.add('vids-empty');

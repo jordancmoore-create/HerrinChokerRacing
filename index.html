@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Herrin Choker Racing — Boat #38, F2500 class hydroplane racing in the Hydroplane Racing League. Driver: Adam Carruthers.">
+<meta name="description" content="Herrin Choker Racing — Boat #38, Formula F class hydroplane racing in the Hydroplane Racing League. Driver: Adam Carruthers.">
 <title>Herrin Choker Racing — #38</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,11 +37,11 @@
   <div class="hero-img"></div>
   <div class="hero-num cond">38</div>
   <div class="hero-in">
-    <p class="eyebrow">Hydroplane Racing League · F2500 Class</p>
+    <p class="eyebrow">Hydroplane Racing League · Formula F</p>
     <h1 class="hero-title cond">Herrin Choker<br><span class="l2">Racing</span></h1>
     <div class="hero-tags">
       <span class="tag g">Boat #38</span>
-      <span class="tag w">F2500 Class</span>
+      <span class="tag w">Formula F Class</span>
       <span class="tag w">Driver · Adam Carruthers</span>
     </div>
   </div>
@@ -119,7 +119,9 @@
       </div>
       <a href="https://www.youtube.com/@HydroplaneRacingLeague" target="_blank" class="sec-link">HRL YouTube →</a>
     </div>
-    <div class="media-grid">
+    <!-- Static grid below is the fallback; js/main.js swaps in admin-uploaded
+         photos from /api/photos when there are any. -->
+    <div class="media-grid" id="gallery">
       <div class="frame big">
         <img src="images/photo1.jpg" alt="Boat #38 racing">
       </div>
@@ -127,6 +129,15 @@
         <div class="frame sm"><img src="images/photo2.jpg" alt="Boat #38 airborne"></div>
         <div class="frame sm"><div class="ph">Add Photo</div></div>
       </div>
+    </div>
+    <!-- Latest posts from @herrinchokerracing — filled by js/main.js from /api/instagram;
+         stays hidden until the Instagram token is connected in the media admin. -->
+    <div class="ig-block" id="igfeed" hidden>
+      <div class="ig-head">
+        <div class="ig-kicker">Latest on Instagram</div>
+        <a href="https://www.instagram.com/herrinchokerracing/" target="_blank" class="sec-link" id="ighandle">@herrinchokerracing →</a>
+      </div>
+      <div class="ig-grid"></div>
     </div>
     <div class="vids" id="clips"></div>
   </div>
@@ -146,7 +157,7 @@
       <div class="driver-info">
         <div class="dk">Pilot · Boat #38</div>
         <div class="dn cond">Adam Carruthers</div>
-        <p>Racing the F2500 class in the Hydroplane Racing League. Behind the wheel of the #38 Herrin Choker hydroplane, chasing the next checkered flag across Canada and the northeastern U.S.</p>
+        <p>Racing the Formula F class in the Hydroplane Racing League. Behind the wheel of the #38 Herrin Choker hydroplane, chasing the next checkered flag across Canada and the northeastern U.S.</p>
         <a href="https://hrlhydroplane.com/en/les-pilotes/adam-carruthers/" target="_blank" class="dlink">HRL Driver Profile →</a>
       </div>
     </div>
@@ -193,7 +204,7 @@
     <div class="fl cond">Herrin <b>Choker</b> Racing · #38</div>
     <div class="fm">Part of the <a href="https://hrlhydroplane.com/en/" target="_blank">Hydroplane Racing League</a></div>
     <div class="fm">© 2026 Herrin Choker Racing</div>
-    <div class="fm"><a href="/log/" title="Go Fast Logs — boat #38 ECU data">Logs</a> · <a href="/clips-admin.html" title="Add race clips (team passcode)">Manage clips</a></div>
+    <div class="fm"><a href="/log/" title="Go Fast Logs — boat #38 ECU data">Logs</a> · <a href="/clips-admin.html" title="Add photos and race clips (team passcode)">Manage media</a></div>
   </div>
 </footer>
 

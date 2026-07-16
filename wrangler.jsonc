@@ -11,5 +11,9 @@
   },
   "r2_buckets": [
     { "binding": "LOGS", "bucket_name": "hcr-telemetry-logs" }
-  ]
+  ],
+  // Daily: refresh the Instagram access token when due + re-cache the feed.
+  "triggers": {
+    "crons": ["23 7 * * *"]
+  }
 }
