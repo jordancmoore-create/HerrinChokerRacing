@@ -65,7 +65,7 @@ Photos are referenced at root level in HTML/CSS for now. Once moved to `images/`
 - **GitHub → Cloudflare Pages auto-deploy** — repo exists, connect it in Cloudflare dashboard (Workers & Pages → Create → Pages → Connect Git)
 - **Instagram token** — one-time Meta developer setup, then paste the token in `/clips-admin.html` (step-by-step instructions are in that page's "How to get the token" section); until then the homepage Instagram section stays hidden
 - **Race results section** — not built; needed once season starts
-- **Sponsor section** — not built; add if sponsors to showcase
+- **Sponsor logos** — sponsors section shows Amazon, Princess Auto, and Coors Light as inline-SVG wordmark approximations (`.slot.filled` in `index.html`); swap in official brand assets from the sponsors when available
 - **`git init`** — needs to be run in this folder, then push to HerrinChokerRacing on GitHub
 
 ---
