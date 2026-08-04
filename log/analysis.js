@@ -7,15 +7,45 @@
   const ECT_COLD = 60, ECT_OPT = [75, 90];   // °C: flag below COLD; ideal band
   const VSAG = 11.5;                          // V: voltage-sag spike threshold under load
 
-  function resample(ch, dt, dur) {
-    const n = Math.floor(dur / dt) + 1;
-    const out = new Float64Array(n);
-    for (let k = 0; k < ch.times.length; k++) {
-      const b = Math.floor(ch.times[k] / dt);
-      if (b >= 0 && b < n) out[b] = ch.values[k];
+  // --- shape-analysis grid (race window + corner detection) ---
+  const GDT = 0.1;          // s per grid sample
+  const WOT_WIN = 8;        // s — rolling window that defines "sustained" throttle
+  const WOT_FRAC = 0.85;    // fraction of the wide-open plateau that still counts
+  const TURN_SMOOTH = 2.5;  // s — smoothing before looking for corner dips
+  const TURN_SEP = 8;       // s — two corners can't be closer than this
+  const TURN_PROM = 0.5;    // corner dip must be this deep vs. the in-race RPM range
+                            // (real corners measure 68–95 % on the reference log;
+                            //  the deepest non-corner wobble is under 30 %)
+
+  // step-hold resample onto a uniform GDT grid (unlike a bucket fill, this keeps
+  // genuine zeros instead of carrying the previous sample over them)
+  function hold(ch, dur) {
+    const n = Math.floor(dur / GDT) + 1, out = new Float64Array(n);
+    let j = 0;
+    for (let i = 0; i < n; i++) {
+      const t = i * GDT;
+      while (j + 1 < ch.times.length && ch.times[j + 1] <= t) j++;
+      out[i] = ch.values[j] || 0;
     }
-    for (let i = 1; i < n; i++) if (out[i] === 0) out[i] = out[i - 1];
     return out;
+  }
+
+  // centred moving average over w samples (running sum, correct at both edges)
+  function smooth(a, w) {
+    const n = a.length, out = new Float64Array(n), h = w >> 1;
+    let s = 0, lo = 0, hi = -1;
+    for (let i = 0; i < n; i++) {
+      const l = Math.max(0, i - h), r = Math.min(n - 1, i + h);
+      while (hi < r) s += a[++hi];
+      while (lo < l) s -= a[lo++];
+      out[i] = s / (hi - lo + 1);
+    }
+    return out;
+  }
+
+  function pctile(a, p) {
+    const s = Array.prototype.slice.call(a).sort((x, y) => x - y);
+    return s[Math.min(s.length - 1, Math.floor(p * s.length))];
   }
 
   function mean(a) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return s / a.length; }
@@ -31,43 +61,127 @@
     return ch.values[Math.min(lo, ch.values.length - 1)];
   }
 
-  function autocorr(seg, dt, loS, hiS) {
-    const m = mean(seg), x = seg.map(v => v - m);
-    let den = 0; for (const v of x) den += v * v; den = den || 1;
-    let best = [0, -2];
-    for (let lag = Math.floor(loS / dt); lag < Math.floor(hiS / dt); lag++) {
-      if (lag >= seg.length) break;
-      let s = 0; for (let i = 0; i < seg.length - lag; i++) s += x[i] * x[i + lag];
-      s /= den; if (s > best[1]) best = [lag * dt, s];
+  // Auto-place the race window: the longest stretch of sustained wide-open
+  // throttle. (The previous "RPM above 4500" test also caught the milling laps
+  // before the gun — on an 8-minute log it returned 0–462 s for a 224 s race.)
+  function raceWindow(log) {
+    const dur = log.duration || 0;
+    const tps = log.channel("TPS"), rpm = log.channel("Engine Speed");
+    const src = (tps && tps.values.length) ? tps : rpm;
+    if (!src || !src.values.length || dur <= 0) return [0, 0];
+    const g = hold(src, dur), n = g.length;
+    const plateau = pctile(g, 0.97);            // robust "flat out" level
+    if (!(plateau > 0)) return [0, 0];
+    const thr = WOT_FRAC * plateau;
+    const av = smooth(g, Math.round(WOT_WIN / GDT));
+    let best = null, s = -1;
+    for (let i = 0; i < n; i++) {
+      if (av[i] >= thr) { if (s < 0) s = i; }
+      else if (s >= 0) { if (!best || i - 1 - s > best[1] - best[0]) best = [s, i - 1]; s = -1; }
     }
-    return best;
+    if (s >= 0 && (!best || n - 1 - s > best[1] - best[0])) best = [s, n - 1];
+    if (!best) return [0, 0];
+    let a = best[0], b = best[1];
+    while (a > 0 && g[a - 1] >= thr) a--;       // walk the edges out to the real corners
+    while (b < n - 1 && g[b + 1] >= thr) b++;
+    return [a * GDT, b * GDT];
   }
 
-  function segment(log) {
-    const dt = 0.5, dur = log.duration;
-    const rpm = log.channel("Engine Speed"), tps = log.channel("TPS");
-    const out = { start: 0, raceStart: 0, raceEnd: 0, lap: 0, nLaps: 0, corner: 0 };
-    if (!rpm) return out;
-    const rs = resample(rpm, dt, dur);
-    let firstRun = -1, a = -1, b = -1;
-    for (let i = 0; i < rs.length; i++) {
-      if (rs[i] > 1500 && firstRun < 0) firstRun = i;
-      if (rs[i] > 4500) { if (a < 0) a = i; b = i; }
+  // Corners read as prominent dips in RPM — he's flat out down the straights and
+  // lifts for each turn. 5 laps = 10 turns, so a lap boundary sits on the straight
+  // between an even-numbered turn and the next odd one. The split goes at the
+  // midpoint of that pair rather than the RPM peak: the peak drifts around inside
+  // the straight depending on how the boat's running, which made otherwise even
+  // laps read 51 s and 40 s.
+  function lapInfo(log, t0, t1) {
+    const out = { turns: [], bounds: [], lap: 0, corner: 0, nLaps: 0 };
+    const rpm = log.channel("Engine Speed");
+    if (!rpm || !rpm.values.length || !(t1 > t0)) return out;
+    const g = smooth(hold(rpm, log.duration), Math.round(TURN_SMOOTH / GDT));
+    const a = Math.max(0, Math.round(t0 / GDT));
+    const b = Math.min(g.length - 1, Math.round(t1 / GDT));
+    out.bounds = [t0, t1];
+    if (b - a < Math.round(TURN_SEP / GDT)) return out;
+    const seg = g.subarray(a, b + 1);
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < seg.length; i++) { if (seg[i] < lo) lo = seg[i]; if (seg[i] > hi) hi = seg[i]; }
+    const prom = (hi - lo) * TURN_PROM, sep = Math.round(TURN_SEP / GDT);
+
+    const turns = [];
+    for (let i = 1; i < seg.length - 1; i++) {
+      if (!(seg[i] <= seg[i - 1] && seg[i] < seg[i + 1])) continue;
+      let l = seg[i], r = seg[i];               // prominence: rise on each side
+      for (let k = i; k >= 0 && seg[k] >= seg[i]; k--) if (seg[k] > l) l = seg[k];
+      for (let k = i; k < seg.length && seg[k] >= seg[i]; k++) if (seg[k] > r) r = seg[k];
+      if (Math.min(l, r) - seg[i] < prom) continue;
+      const last = turns.length ? turns[turns.length - 1] : -1;
+      if (last >= 0 && i - last < sep) { if (seg[i] < seg[last]) turns[turns.length - 1] = i; }
+      else turns.push(i);
     }
-    out.start = firstRun > 0 ? firstRun * dt : 0;
-    if (a < 0) return out;
-    out.raceStart = a * dt; out.raceEnd = b * dt;
-    if (tps) {
-      const ts = resample(tps, dt, dur).slice(a, b);
-      const corner = autocorr(ts, dt, 12, 40);
-      let lap = autocorr(ts, dt, 38, 75);
-      let lapS = lap[0];
-      if (lapS <= 0 || (corner[0] && Math.abs(lapS - 2 * corner[0]) > 12))
-        lapS = corner[0] ? 2 * corner[0] : 0;
-      out.corner = corner[0]; out.lap = lapS;
-      out.nLaps = lapS ? (out.raceEnd - out.raceStart) / lapS : 0;
-    }
+    out.turns = turns.map(i => (a + i) * GDT);
+
+    const bounds = [t0];
+    for (let k = 2; k < turns.length; k += 2)
+      bounds.push(0.5 * (out.turns[k - 1] + out.turns[k]));
+    bounds.push(t1);
+    // a sliver of a final lap means the end handle sits mid-straight — fold it in
+    if (bounds.length > 2 && t1 - bounds[bounds.length - 2] < 0.35 * (t1 - t0) / (bounds.length - 1))
+      bounds.splice(bounds.length - 2, 1);
+    out.bounds = bounds;
+    out.nLaps = bounds.length - 1;
+
+    const gaps = [];
+    for (let k = 1; k < out.turns.length; k++) gaps.push(out.turns[k] - out.turns[k - 1]);
+    if (gaps.length) { out.corner = median(gaps); out.lap = 2 * out.corner; }
+    else if (out.nLaps) out.lap = (t1 - t0) / out.nLaps;
     return out;
+  }
+
+  // `saved` is a stored { start, end } window (a hand-placed one wins over auto-detect)
+  function segment(log, saved) {
+    const out = { start: 0, raceStart: 0, raceEnd: 0, lap: 0, nLaps: 0, corner: 0,
+      turns: [], bounds: [], auto: true };
+    const rpm = log.channel("Engine Speed");
+    if (!rpm || !rpm.values.length) return out;
+    const g = hold(rpm, log.duration);
+    for (let i = 0; i < g.length; i++) if (g[i] > 1500) { out.start = i * GDT; break; }
+    let a, b;
+    if (saved && saved.end > saved.start) { a = saved.start; b = saved.end; out.auto = false; }
+    else { const w = raceWindow(log); a = w[0]; b = w[1]; }
+    return setWindow(log, out, a, b);
+  }
+
+  // move the race window on an existing segment (used by the chart handles)
+  function setWindow(log, seg, t0, t1) {
+    seg.raceStart = t0; seg.raceEnd = t1;
+    const li = lapInfo(log, t0, t1);
+    seg.turns = li.turns; seg.bounds = li.bounds;
+    seg.lap = li.lap; seg.corner = li.corner; seg.nLaps = li.nLaps;
+    return seg;
+  }
+
+  // min/max/avg of a channel inside each [bounds[k], bounds[k+1]) slice plus the
+  // total across the whole span — one pass over the raw samples, so the numbers
+  // match the full-log row rather than the display grid.
+  function binStats(ch, bounds) {
+    const nb = Math.max(0, (bounds || []).length - 1), bins = [];
+    const blank = () => ({ n: 0, sum: 0, min: Infinity, max: -Infinity });
+    for (let k = 0; k < nb; k++) bins.push(blank());
+    const total = blank();
+    const fin = o => ({ n: o.n, avg: o.n ? o.sum / o.n : 0, min: o.n ? o.min : 0, max: o.n ? o.max : 0 });
+    if (!nb || !ch || !ch.times.length) return { bins: bins.map(fin), total: fin(total) };
+    const t0 = bounds[0], t1 = bounds[nb];
+    let k = 0;
+    for (let i = 0; i < ch.times.length; i++) {
+      const t = ch.times[i];
+      if (t < t0) continue;
+      if (t > t1) break;
+      while (k < nb - 1 && t >= bounds[k + 1]) k++;
+      const v = ch.values[i], b = bins[k];
+      b.n++; b.sum += v; if (v < b.min) b.min = v; if (v > b.max) b.max = v;
+      total.n++; total.sum += v; if (v < total.min) total.min = v; if (v > total.max) total.max = v;
+    }
+    return { bins: bins.map(fin), total: fin(total) };
   }
 
   function during(ch, t0, t1) {
@@ -344,5 +458,6 @@
     return { enough: true, n: N, items: items.slice(0, 6) };
   }
 
-  global.Analysis = { segment, flags, kpis, summaryStats, trends, resample, ECT_OPT, ECT_COLD };
+  global.Analysis = { segment, setWindow, raceWindow, lapInfo, binStats,
+    flags, kpis, summaryStats, trends, ECT_OPT, ECT_COLD };
 })(window);

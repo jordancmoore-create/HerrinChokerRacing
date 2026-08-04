@@ -43,6 +43,14 @@ function accessKey(request, url) {
 function sanitizeId(id) {
   return String(id || "").replace(/[\/\\\x00-\x1f]+/g, "_").slice(0, 200).trim();
 }
+// The race window the team set on the charts: two finite seconds-into-the-log
+// marks, or null when the client is happy with auto-detection.
+function raceWindow(r) {
+  if (!r || typeof r !== "object") return null;
+  const start = Number(r.start), end = Number(r.end);
+  if (!isFinite(start) || !isFinite(end) || start < 0 || end <= start) return null;
+  return { start, end, auto: r.auto !== false };
+}
 // Validate the "lf3" magic (0x6c 0x66 0x33) within the first bytes.
 function hasMagic(bytes) {
   const n = Math.min(bytes.length - 3, 16);
@@ -380,7 +388,7 @@ async function handleApi(request, env, url) {
       id, name: meta.name || id, title: meta.title || "", ecu: meta.ecu || "", serial: meta.serial || "",
       duration: meta.duration || 0, channels: meta.channels || 0, logTime: meta.logTime || null,
       cls: meta.cls || { group: "testing", auto: true }, note: meta.note || "",
-      stats: meta.stats || {}, uploadedAt: Date.now(),
+      race: raceWindow(meta.race), stats: meta.stats || {}, uploadedAt: Date.now(),
     };
     const idx = await readIndex(env);
     const next = idx.filter(e => e.id !== id);   // overwrite same id (de-dupe)
@@ -399,6 +407,8 @@ async function handleApi(request, env, url) {
     if (!e) return json({ error: "Not found" }, 404);
     if (body.cls !== undefined) e.cls = body.cls;
     if (body.note !== undefined) e.note = body.note;
+    if (body.race !== undefined) e.race = raceWindow(body.race);
+    if (body.stats !== undefined && body.stats && typeof body.stats === "object") e.stats = body.stats;
     await writeIndex(env, idx);
     return json({ ok: true });
   }

@@ -33,8 +33,10 @@
       try {
         buf = await readFile(file);
         log = LLGX.parse(buf);
-        seg = Analysis.segment(log);
         id = contentId(log, file.name);
+        // re-dropping a log that already has a hand-placed race window keeps it
+        const known = historyMeta.find(m => m.id === id);
+        seg = Analysis.segment(log, known && known.race);
       } catch (e) { console.error(e); toast("Couldn't read " + file.name + ": " + e.message); continue; }
 
       const ex = logs.findIndex(e => e.id === id);
@@ -68,7 +70,7 @@
       id, name: file.name, size: file.size, added: (prev && prev.added) || Date.now(),
       title: log.title, ecu: log.ecu_model, serial: log.serial,
       duration: log.duration, channels: log.channels.length,
-      logTime, cls, note, stats: Analysis.summaryStats(log, seg),
+      logTime, cls, note, race: raceMeta(seg), stats: Analysis.summaryStats(log, seg),
     };
     if (DB.available())
       DB.put(meta, bytes).then(refreshHistory).catch(e => console.warn("history save failed", e));
@@ -108,8 +110,35 @@
     return {
       id: m.id, name: m.name, title: m.title, ecu: m.ecu, serial: m.serial,
       duration: m.duration, channels: m.channels, logTime: m.logTime,
-      cls: m.cls, note: m.note || "", stats: m.stats,
+      cls: m.cls, note: m.note || "", race: m.race || null, stats: m.stats,
     };
+  }
+
+  const raceMeta = seg => ({ start: seg.raceStart, end: seg.raceEnd, auto: seg.auto !== false });
+
+  // Handles moved on a chart: the race window drives the KPI tiles, the Concerns
+  // and the cross-log trends, so recompute all of it, then save the window to the
+  // shared library so the rest of the team opens the log on the same boundaries.
+  function onRaceWindow() {
+    if (active < 0 || home) return;
+    const e = logs[active];
+    e.kpis = Analysis.kpis(e.log, e.seg);
+    e.flags = Analysis.flags(e.log, e.seg);
+    renderHeader(e); renderKpis(e); renderFlags(e);
+    const m = historyMeta.find(r => r.id === e.id);
+    if (!m) return;
+    m.race = raceMeta(e.seg);
+    m.stats = Analysis.summaryStats(e.log, e.seg);
+    clearTimeout(onRaceWindow._t);
+    onRaceWindow._t = setTimeout(() => {
+      // entries from the static manifest are read-only — saving them locally would
+      // shadow the published copy with a meta record that has no file behind it
+      const local = (DB.available() && !m.cloud && !m.published) ? DB.putMeta(m) : Promise.resolve();
+      const cloud = m.cloud ? Cloud.update(m.id, { race: m.race, stats: m.stats }).then(reloadCloud) : Promise.resolve();
+      Promise.all([local, cloud])
+        .then(() => { refreshHistory(); renderTrends(e); })
+        .catch(err => toast(err.message === "passcode" ? "Connect (☁) to save the race window" : "Couldn't save window: " + err.message));
+    }, 600);
   }
 
   // auto-save a freshly-dropped log to the shared library when connected
@@ -177,7 +206,7 @@
     Promise.resolve(source).then(bytes => {
       if (!bytes) { toast("Saved file missing"); return; }
       const log = LLGX.parse(bytes);
-      const seg = Analysis.segment(log);
+      const seg = Analysis.segment(log, m.race);
       logs.push({ id, name: m.name || log.title, log, seg, flags: Analysis.flags(log, seg), kpis: Analysis.kpis(log, seg) });
       active = logs.length - 1; home = false; render();
     }).catch(e => toast("Couldn't open: " + e.message));
@@ -264,7 +293,7 @@
       Charts.buildReadout(e.log, e.seg, readout);
     } else {
       readout.style.display = "none"; charts.style.display = "";
-      Charts.build(e.log, e.seg, charts);
+      Charts.build(e.log, e.seg, charts, onRaceWindow);
     }
   }
   document.addEventListener("click", ev => {
@@ -302,12 +331,14 @@
     ].filter(c => c && c[1] != null && c[1] !== "");
     const noteHtml = (m && m.note) ? `<span class="chip chip-note">📝 ${esc(m.note)}</span>` : "";
     $("#chips").innerHTML = noteHtml + chips.map(c => `<span class="chip">${c[0] ? "<b>" + c[0] + "</b>" : ""}${esc(String(c[1]))}</span>`).join("");
-    const s = e.seg;
+    const s = e.seg, ms = t => Math.floor(t / 60) + ":" + String(Math.round(t % 60)).padStart(2, "0");
     let tl = `<span class="seg-dot"></span>Engine start ~${s.start.toFixed(0)}s`;
-    if (s.raceStart) {
-      tl += `&nbsp;·&nbsp;Sustained load ${s.raceStart.toFixed(0)}–${s.raceEnd.toFixed(0)}s `
-          + `(${((s.raceEnd - s.raceStart) / 60).toFixed(1)} min)`;
-      if (s.lap) tl += `&nbsp;·&nbsp;<span class="muted">if race: ~${s.lap.toFixed(0)}s lap → ~${Math.round(s.nLaps)} laps (approx)</span>`;
+    if (s.raceEnd > s.raceStart) {
+      tl += `&nbsp;·&nbsp;Race ${s.raceStart.toFixed(0)}–${s.raceEnd.toFixed(0)}s (${ms(s.raceEnd - s.raceStart)})`
+          + (s.auto === false ? ` <span class="muted">· window set by hand</span>` : "");
+      if (s.nLaps > 1)
+        tl += `&nbsp;·&nbsp;<span class="muted">${s.nLaps} laps, ~${s.lap.toFixed(0)}s each `
+            + `(${s.turns.length} turns detected)</span>`;
     }
     $("#timeline").innerHTML = tl;
   }

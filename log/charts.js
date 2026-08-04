@@ -31,17 +31,28 @@
     return out;
   }
 
-  // plugin: shade the sustained-load window + optional threshold line (behind series)
-  function bgPlugin(band, threshold) {
+  // plugin: shade the race window + lap dividers + optional threshold line (behind series)
+  function bgPlugin(threshold) {
     return {
       hooks: {
         drawClear: u => {
           const ctx = u.ctx;
-          if (band && band[1] > band[0]) {
-            const x0 = u.valToPos(band[0], "x", true), x1 = u.valToPos(band[1], "x", true);
+          if (win.t1 > win.t0) {
+            const L = u.bbox.left, R = u.bbox.left + u.bbox.width;
+            const clamp = x => x < L ? L : x > R ? R : x;
+            const x0 = clamp(u.valToPos(win.t0, "x", true)), x1 = clamp(u.valToPos(win.t1, "x", true));
             ctx.save();
             ctx.fillStyle = cssVar("--chart-shade", "rgba(160,160,170,0.07)");
             ctx.fillRect(x0, u.bbox.top, x1 - x0, u.bbox.height);
+            if (win.bounds.length > 2) {
+              ctx.strokeStyle = cssVar("--chart-lap", "rgba(148,163,184,0.4)");
+              ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
+              for (let i = 1; i < win.bounds.length - 1; i++) {
+                const x = u.valToPos(win.bounds[i], "x", true);
+                if (x < L || x > R) continue;
+                ctx.beginPath(); ctx.moveTo(x, u.bbox.top); ctx.lineTo(x, u.bbox.top + u.bbox.height); ctx.stroke();
+              }
+            }
             ctx.restore();
           }
           if (threshold != null) {
@@ -141,6 +152,117 @@
   let syncing = false;
   const CH_H = 172;   // chart plot height (px)
 
+  // ---------- race window ----------
+  // One window shared by every chart: grab a handle on any of them and all the
+  // charts, the Race Average rows and the lap breakdowns move together.
+  const MIN_WIN = 5;                 // s — stop the window collapsing to nothing
+  const win = { log: null, seg: null, t0: 0, t1: 0, bounds: [], dur: 0, auto: true };
+  const panels = [];                 // one per rendered chart, for live stat updates
+  let onWindowChange = null;
+  let dragging = null;               // { u, idx } while a handle is held
+  let raf = 0;
+
+  function addHandles(u) {
+    const els = [0, 1].map(idx => {
+      const h = document.createElement("div");
+      h.className = "rw-handle " + (idx ? "rw-end" : "rw-start");
+      h.innerHTML = '<span class="rw-grip"></span>';
+      h.title = idx ? "Drag — race end" : "Drag — race start";
+      u.over.appendChild(h);
+      // uPlot listens for mousedown on .u-over to start a drag-zoom; swallow both
+      // the pointer event and its compatibility mouse event so grabbing a handle
+      // doesn't zoom the chart instead.
+      h.addEventListener("pointerdown", e => {
+        e.preventDefault(); e.stopPropagation();
+        dragging = { u: u, idx: idx };
+        document.body.classList.add("rw-dragging");
+        try { h.setPointerCapture(e.pointerId); } catch (_) { }
+      });
+      h.addEventListener("mousedown", e => { e.preventDefault(); e.stopPropagation(); });
+      h.addEventListener("pointermove", e => { if (dragging) dragTo(u, e.clientX); });
+      const end = () => { if (!dragging) return; dragging = null; document.body.classList.remove("rw-dragging"); commitWindow(); };
+      h.addEventListener("pointerup", end);
+      h.addEventListener("pointercancel", end);
+      return h;
+    });
+    placeHandles(u, els);
+    return els;
+  }
+
+  // percentage positioning against .u-over (which spans exactly the plot area)
+  // keeps the handles aligned through resizes and drag-zooms alike
+  function placeHandles(u, els) {
+    const xs = u.scales.x;
+    if (xs.min == null) return;
+    const span = (xs.max - xs.min) || 1;
+    [win.t0, win.t1].forEach((t, i) => {
+      const f = (t - xs.min) / span;
+      els[i].style.left = (100 * f) + "%";
+      els[i].style.display = (f < -0.01 || f > 1.01) ? "none" : "";
+    });
+  }
+
+  function dragTo(u, clientX) {
+    const r = u.over.getBoundingClientRect();
+    if (!r.width) return;
+    const xs = u.scales.x, span = (xs.max - xs.min) || 1;
+    let t = xs.min + ((clientX - r.left) / r.width) * span;
+    t = Math.max(0, Math.min(win.dur, t));
+    if (dragging.idx === 0) win.t0 = Math.min(t, win.t1 - MIN_WIN);
+    else win.t1 = Math.max(t, win.t0 + MIN_WIN);
+    win.auto = false;
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; applyWindow(); });
+  }
+
+  // re-derive the laps, repaint the shading/handles and refresh every stats row.
+  // Cheap enough to run on each animation frame while a handle is moving; the
+  // expensive part (KPIs, concerns, saving) waits for commitWindow().
+  function applyWindow() {
+    if (!win.log) return;
+    win.bounds = Analysis.lapInfo(win.log, win.t0, win.t1).bounds;
+    charts.forEach(u => u.redraw(false, false));
+    panels.forEach(renderPanelStats);
+    const bar = document.querySelector(".rw-readout");
+    if (bar) bar.innerHTML = windowLabel();
+  }
+
+  function commitWindow() {
+    if (win.seg) { Analysis.setWindow(win.log, win.seg, win.t0, win.t1); win.seg.auto = win.auto; }
+    applyWindow();
+    if (onWindowChange) onWindowChange(win.t0, win.t1, win.auto);
+  }
+
+  function resetWindow() {
+    const w = Analysis.raceWindow(win.log);
+    if (!(w[1] > w[0])) return;
+    win.t0 = w[0]; win.t1 = w[1]; win.auto = true;
+    commitWindow();
+  }
+
+  function windowLabel() {
+    const laps = Math.max(0, win.bounds.length - 1);
+    return `<b>Race window</b> ${fmtMS(win.t0)} – ${fmtMS(win.t1)}`
+      + ` <span class="rw-dur">(${fmtMS(win.t1 - win.t0)})</span>`
+      + (laps > 1 ? ` · ${laps} laps` : "")
+      + (win.auto ? ` <span class="rw-auto">auto</span>` : ` <span class="rw-auto rw-manual">adjusted</span>`);
+  }
+
+  // Race Average + per-lap rows for one chart. Stats come from the raw samples
+  // (not the display grid) so they line up with the full-log row above them.
+  function renderPanelStats(p) {
+    const bs = Analysis.binStats(p.ch, win.bounds), us = p.us;
+    const cell = (lab, v) => `<span><i>${lab}</i> ${fmt(p.conv(v))}${us}</span>`;
+    p.raceEl.innerHTML = bs.total.n
+      ? `<span class="rw-lead">Race avg</span>${cell("Avg", bs.total.avg)}${cell("Max", bs.total.max)}${cell("Min", bs.total.min)}`
+      : `<span class="rw-lead">Race avg</span><span class="rw-none">no samples in window</span>`;
+    const n = bs.bins.length;
+    p.lapsEl.innerHTML = (n < 2) ? "" : bs.bins.map((b, i) => {
+      const secs = win.bounds[i + 1] - win.bounds[i];
+      return `<div class="lap-row"><b>Lap ${i + 1}</b><span class="lap-t">${secs.toFixed(1)}s</span>`
+        + (b.n ? `${cell("Avg", b.avg)}${cell("Max", b.max)}` : `<span class="rw-none">—</span>`) + `</div>`;
+    }).join("");
+  }
+
   // "Show all channels" toggle — curated key channels by default, every
   // logged channel on demand. Persisted so it sticks across logs.
   let showAll = localStorage.getItem("show-all-channels") === "1";
@@ -156,7 +278,8 @@
     return v || fallback;
   }
 
-  // Toolbar above the charts: channel count + show-all toggle.
+  // Toolbar above the charts: channel count + show-all toggle, and the race
+  // window readout with a reset back to the auto-detected boundaries.
   function renderToolbar(container, total) {
     const bar = document.createElement("div");
     bar.className = "charts-bar";
@@ -169,14 +292,23 @@
     bar.querySelector(".chan-toggle").addEventListener("click", () => {
       showAll = !showAll;
       localStorage.setItem("show-all-channels", showAll ? "1" : "0");
-      if (lastBuild) build(lastBuild.log, lastBuild.seg, lastBuild.container);
+      if (lastBuild) build(lastBuild.log, lastBuild.seg, lastBuild.container, onWindowChange);
     });
+
+    const rw = document.createElement("div");
+    rw.className = "rw-bar";
+    rw.innerHTML = `<span class="rw-readout">${windowLabel()}</span>
+      <span class="rw-hint">Drag the ⟨ ⟩ handles on any chart to set the start and end of the race</span>
+      <button class="rw-reset" type="button">Reset to auto</button>`;
+    container.appendChild(rw);
+    rw.querySelector(".rw-reset").addEventListener("click", resetWindow);
   }
 
-  function build(log, seg, container) {
+  function build(log, seg, container, onChange) {
     lastBuild = { log, seg, container };
     container.innerHTML = "";
     charts.length = 0;
+    panels.length = 0;
     const dur = log.duration || 1;
     const dt = dur < 1200 ? 0.1 : 0.25;
     const n = Math.floor(dur / dt) + 1;
@@ -184,7 +316,11 @@
     for (let i = 0; i < n; i++) grid[i] = i * dt;
 
     const sync = uPlot.sync("telemetry");
-    const band = [seg.raceStart, seg.raceEnd];
+    onWindowChange = onChange || null;
+    win.log = log; win.seg = seg; win.dur = dur;
+    win.t0 = seg.raceStart; win.t1 = seg.raceEnd;
+    win.bounds = (seg.bounds && seg.bounds.length > 1) ? seg.bounds : [seg.raceStart, seg.raceEnd];
+    win.auto = seg.auto !== false;
 
     // Resolve the curated channels first, tracking which log channels they
     // consumed so "show all" doesn't double-plot the same channel.
@@ -241,10 +377,13 @@
           <span class="chart-val" data-val></span>
         </div><div class="chart-body"></div>
         <div class="chart-stats">
+          <span class="rw-lead">Whole log</span>
           <span><i>Min</i> ${fmt(dLo)}${us}</span>
           <span><i>Max</i> ${fmt(dHi)}${us}</span>
           <span><i>Avg</i> ${fmt(dAvg)}${us}</span>
-        </div>`;
+        </div>
+        <div class="chart-stats chart-race" data-race></div>
+        <div class="chart-laps" data-laps></div>`;
       container.appendChild(card);
       const valEl = card.querySelector("[data-val]");
       const body = card.querySelector(".chart-body");
@@ -287,7 +426,7 @@
           { stroke: spec.color, width: 1.6, fill: gradientFill(spec.color),
             points: { show: false }, value: (u, v) => v == null ? "" : fmt(v) + (unit ? " " + unit : "") },
         ],
-        plugins: [bgPlugin(band, spec.threshold ? spec.threshold.v : null), ...extra],
+        plugins: [bgPlugin(spec.threshold ? spec.threshold.v : null), ...extra],
         hooks: {
           setCursor: [u => {
             const i = u.cursor.idx;
@@ -300,11 +439,18 @@
             charts.forEach(c => { if (c !== u) c.setScale("x", { min: xs.min, max: xs.max }); });
             syncing = false;
           }],
+          draw: [u => { if (u._rwHandles) placeHandles(u, u._rwHandles); }],
         },
       };
       const u = new uPlot(opts, [grid, ys], body);
+      u._rwHandles = addHandles(u);
       sync.sub(u);
       charts.push(u);
+      const p = {
+        u, ch, conv, us, raceEl: card.querySelector("[data-race]"), lapsEl: card.querySelector("[data-laps]"),
+      };
+      panels.push(p);
+      renderPanelStats(p);
     });
 
     if (!charts.length) {
