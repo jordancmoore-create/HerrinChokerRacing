@@ -33,6 +33,10 @@ nav{position:sticky;top:0;z-index:50;background:rgba(12,12,13,.82);backdrop-filt
 .nav-links a:hover{color:var(--gold-lt);}
 .nav-right{display:flex;align-items:center;gap:14px;}
 .nav-cta{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--black);background:var(--gold);padding:9px 18px;border-radius:2px;text-decoration:none;}
+/* rulebook search — stays visible on phones, it's the one nav item wanted trackside */
+.nav-search{display:inline-flex;align-items:center;gap:7px;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--cream);background:none;border:1px solid rgba(139,26,26,.55);padding:8px 15px;border-radius:2px;cursor:pointer;transition:border-color .15s,color .15s;}
+.nav-search:hover{border-color:var(--gold);color:var(--gold-lt);}
+.nav-search .ns-icon{font-size:17px;line-height:1;}
 
 /* ── HAMBURGER ── */
 .nav-burger{display:none;flex-direction:column;justify-content:center;gap:5px;background:none;border:none;cursor:pointer;padding:4px 2px;flex-shrink:0;}
@@ -183,6 +187,9 @@ footer{border-top:6px solid var(--red);background:var(--ink);padding:48px 0 36px
   .nav-links{display:none;}
   .nav-cta{display:none;}
   .nav-burger{display:flex;}
+  .nav-search{padding:11px 13px;}          /* bigger tap target for the pits */
+  .nav-search .ns-icon{font-size:19px;}
+  .nav-search .ns-label{display:none;}
   nav.nav-open .nav-links{
     display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;
     background:rgba(12,12,13,.97);backdrop-filter:blur(12px);

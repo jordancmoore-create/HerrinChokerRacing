@@ -6,6 +6,7 @@
 <title>Go Fast Logs — Herrin Choker Racing #38</title>
 <link rel="stylesheet" href="vendor/uPlot.min.css">
 <link rel="stylesheet" href="styles.css?v=22">
+<link rel="stylesheet" href="../css/rules-search.css?v=1">
 <script>document.documentElement.dataset.theme = localStorage.getItem('inferno-theme') || 'dark';</script>
 </head>
 <body>
@@ -15,6 +16,7 @@
     <div class="brand-text"><span class="brand-name">Go Fast Logs</span><small>Herrin Choker Racing · #38</small></div>
   </button>
   <div class="spacer"></div>
+  <button class="ghost-btn" data-rules-search title="Search the HRL rulebook (Ctrl+K)"><span class="bi">⌕</span><span class="bl">Rules</span></button>
   <button class="ghost-btn" id="openBtn" title="Add log"><span class="bi">＋</span><span class="bl">Add log</span></button>
   <button class="ghost-btn icon-btn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">☀</button>
 </header>
@@ -58,6 +60,7 @@
 <script src="analysis.js?v=22"></script>
 <script src="charts.js?v=22"></script>
 <script src="app.js?v=22"></script>
+<script src="../js/rules-search.js?v=1"></script>
 <script>document.getElementById('openBtn').onclick=()=>document.getElementById('fileInput').click();</script>
 </body>
 </html>

@@ -14,3 +14,4 @@ node_modules/
 CLAUDE.md
 log/logs/
 log/manifest.json
+tools/

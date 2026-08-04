@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700;1,900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/rules-search.css">
 </head>
 <body>
 
@@ -24,6 +25,9 @@
       <li><a href="#follow">Follow</a></li>
     </ul>
     <div class="nav-right">
+      <button class="nav-search" data-rules-search title="Search the HRL rulebook (Ctrl+K)" aria-label="Search the HRL rulebook">
+        <span class="ns-icon" aria-hidden="true">⌕</span><span class="ns-label">Rules</span>
+      </button>
       <a href="#follow" class="nav-cta">Follow #38</a>
       <button class="nav-burger" aria-label="Menu" aria-expanded="false">
         <span></span><span></span><span></span>
@@ -215,5 +219,6 @@
 </footer>
 
 <script src="js/main.js" defer></script>
+<script src="js/rules-search.js" defer></script>
 </body>
 </html>
