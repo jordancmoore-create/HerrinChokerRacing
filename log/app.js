@@ -70,7 +70,8 @@
       id, name: file.name, size: file.size, added: (prev && prev.added) || Date.now(),
       title: log.title, ecu: log.ecu_model, serial: log.serial,
       duration: log.duration, channels: log.channels.length,
-      logTime, cls, note, race: raceMeta(seg), stats: Analysis.summaryStats(log, seg),
+      logTime, cls, note, race: raceMeta(seg, log), official: (prev && prev.official) || null,
+      stats: Analysis.summaryStats(log, seg),
     };
     if (DB.available())
       DB.put(meta, bytes).then(refreshHistory).catch(e => console.warn("history save failed", e));
@@ -110,11 +111,155 @@
     return {
       id: m.id, name: m.name, title: m.title, ecu: m.ecu, serial: m.serial,
       duration: m.duration, channels: m.channels, logTime: m.logTime,
-      cls: m.cls, note: m.note || "", race: m.race || null, stats: m.stats,
+      cls: m.cls, note: m.note || "", race: m.race || null,
+      official: m.official || null, stats: m.stats,
     };
   }
 
-  const raceMeta = seg => ({ start: seg.raceStart, end: seg.raceEnd, auto: seg.auto !== false });
+  // ---------- official HRL timing ----------
+  // We pull logs off the ECU and upload them minutes after a heat, long before
+  // the league posts results, so "not there yet" is the normal first answer.
+  // Poll on a widening schedule while the log is open, then hand it over to a
+  // manual button rather than retrying forever.
+  const BOAT = "38", BOAT_CLASS = "F";
+  const HRL_SITE = {
+    cambridge: "cambridge", sorel: "sorel-tracy", brockville: "brockville",
+    valleyfield: "valleyfield", tonawanda: "north-tonawanda", beauharnois: "beauharnois",
+  };
+  const RETRY_MS = [60e3, 5 * 60e3, 15 * 60e3, 30 * 60e3];
+  const official = {};   // logId → { state, tries, timer, msg }
+
+  // HRL's group ids are unpadded local dates: 2026-6-27, not 2026-06-27
+  function hrlDate(m) {
+    let d = m.logTime ? new Date(m.logTime) : null;
+    if (!d && m.cls && m.cls.event) {
+      const ev = History.SCHEDULE.find(e => e.id === m.cls.event);
+      if (ev) { d = new Date(ev.start + "T12:00:00"); if (m.cls.day === "Sun") d.setDate(d.getDate() + 1); }
+    }
+    return d ? d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate() : "";
+  }
+
+  // Adam runs one heat per session, so the heat number picks the Nth of that
+  // day's races; "Final" matches on the heat code instead.
+  function pickHeat(heats, want) {
+    if (!heats || !heats.length) return null;
+    if (String(want) === "Final")
+      return heats.find(h => /final/i.test(h.heat)) || null;
+    const qual = heats.filter(h => !/final/i.test(h.heat));
+    const n = +want;
+    return (n >= 1 && qual[n - 1]) ? qual[n - 1] : (qual[0] || heats[0]);
+  }
+
+  function officialQuery(m) {
+    const site = HRL_SITE[m.cls && m.cls.event];
+    const date = hrlDate(m);
+    if (!site || !date) return null;
+    return { site, date, cls: BOAT_CLASS, boat: BOAT };
+  }
+
+  function clearOfficial(id) {
+    const s = official[id];
+    if (s && s.timer) clearTimeout(s.timer);
+  }
+
+  // Kick off (or resume) the lookup for the open log.
+  function ensureOfficial(e) {
+    const m = historyMeta.find(r => r.id === e.id);
+    if (!m || !m.cls || m.cls.group !== "race") { renderOfficial(e, null); return; }
+    if (m.official) { renderOfficial(e, m.official); return; }
+    if (!Cloud.hasKey() || Cloud.isOnline() === false) {
+      renderOfficial(e, null, { state: "offline" }); return;
+    }
+    if (!officialQuery(m)) { renderOfficial(e, null, { state: "unknown" }); return; }
+    const s = official[e.id] || (official[e.id] = { tries: 0 });
+    if (s.state === "waiting" || s.state === "loading") { renderOfficial(e, null, s); return; }
+    fetchOfficial(e, false);
+  }
+
+  function fetchOfficial(e, manual) {
+    const m = historyMeta.find(r => r.id === e.id);
+    const q = m && officialQuery(m);
+    if (!q) return;
+    const s = official[e.id] || (official[e.id] = { tries: 0 });
+    clearOfficial(e.id);
+    if (manual) { s.tries = 0; q.fresh = "1"; }
+    s.state = "loading";
+    renderOfficial(e, null, s);
+    Cloud.hrlTime(q).then(res => {
+      const cur = logs[active];
+      const showing = cur && cur.id === e.id && !home;
+      if (res.status === "ok") {
+        const hit = pickHeat(res.heats, m.cls.heat);
+        if (hit) {
+          s.state = "ok";
+          saveOfficial(m, Object.assign({ fetchedAt: Date.now() }, hit));
+          if (showing) { renderOfficial(e, m.official); renderHeader(e); }
+          return;
+        }
+      }
+      s.tries++;
+      s.msg = res.status === "error" ? (res.message || "unavailable") : "";
+      if (res.status !== "error" && s.tries <= RETRY_MS.length) {
+        s.state = "waiting";
+        s.next = Date.now() + RETRY_MS[s.tries - 1];
+        s.timer = setTimeout(() => {
+          const still = logs.find(l => l.id === e.id);
+          if (still) fetchOfficial(still, false);
+        }, RETRY_MS[s.tries - 1]);
+      } else {
+        s.state = "gaveup";
+      }
+      if (showing) renderOfficial(e, null, s);
+    });
+  }
+
+  function saveOfficial(m, o) {
+    m.official = o;
+    if (m.cloud) Cloud.update(m.id, { official: o }).then(reloadCloud).then(refreshHistory).catch(() => { });
+    else if (DB.available() && !m.published) DB.putMeta(m).then(refreshHistory).catch(() => { });
+  }
+
+  function renderOfficial(e, o, s) {
+    const el = $("#official");
+    if (!el) return;
+    if (o) {
+      const det = e.seg.raceEnd - e.seg.raceStart;
+      const gap = det ? o.time - det : 0;
+      const pen = [o.penalty1, o.penalty2].filter(p => p && p !== "0").join(" ");
+      el.innerHTML = `<span class="off-tag">Official HRL</span>`
+        + `<b>${o.time.toFixed(2)}s</b>`
+        + `<span class="off-sub">${o.heat ? esc(o.heat) + " · " : ""}P${o.position} · ${o.laps} laps`
+        + `${pen ? " · penalty " + esc(pen) : ""}${o.points ? " · " + esc(o.points) + " pts" : ""}</span>`
+        + (det ? `<span class="off-cmp">detected window ${det.toFixed(1)}s `
+            + `<i class="${Math.abs(gap) <= 5 ? "ok" : "off"}">${gap >= 0 ? "+" : ""}${gap.toFixed(1)}s</i></span>` : "")
+        + `<button class="off-btn" type="button" data-official-refresh>Refresh</button>`;
+      return;
+    }
+    const st = s && s.state;
+    if (st === "loading") el.innerHTML = `<span class="off-tag">Official HRL</span><span class="off-sub">checking…</span>`;
+    else if (st === "waiting") el.innerHTML = `<span class="off-tag">Official HRL</span>`
+      + `<span class="off-sub">not posted yet — checking again shortly (try ${s.tries} of ${RETRY_MS.length})</span>`
+      + `<button class="off-btn" type="button" data-official-refresh>Check now</button>`;
+    else if (st === "gaveup" || st === "unknown") el.innerHTML = `<span class="off-tag">Official HRL</span>`
+      + `<span class="off-sub">${s && s.msg ? esc(s.msg) : "no result posted"}</span>`
+      + `<button class="off-btn" type="button" data-official-refresh>Fetch time</button>`;
+    else el.innerHTML = "";
+  }
+
+  document.addEventListener("click", ev => {
+    if (!ev.target.closest("[data-official-refresh]")) return;
+    if (active < 0 || home) return;
+    const e = logs[active];
+    const m = historyMeta.find(r => r.id === e.id);
+    if (m) m.official = null;
+    fetchOfficial(e, true);
+  });
+
+  // logDur pins the window to the timebase it was placed against, so it survives
+  // a change in how the log's clock is derived
+  const raceMeta = (seg, log) => ({
+    start: seg.raceStart, end: seg.raceEnd, auto: seg.auto !== false, logDur: log.duration,
+  });
 
   // Handles moved on a chart: the race window drives the KPI tiles, the Concerns
   // and the cross-log trends, so recompute all of it, then save the window to the
@@ -127,7 +272,8 @@
     renderHeader(e); renderKpis(e); renderFlags(e);
     const m = historyMeta.find(r => r.id === e.id);
     if (!m) return;
-    m.race = raceMeta(e.seg);
+    if (m.official) renderOfficial(e, m.official);   // the +/- vs the window just moved
+    m.race = raceMeta(e.seg, e.log);
     m.stats = Analysis.summaryStats(e.log, e.seg);
     clearTimeout(onRaceWindow._t);
     onRaceWindow._t = setTimeout(() => {
@@ -276,7 +422,7 @@
     renderTabs();
     if (active >= 0 && !home) {
       const e = logs[active];
-      renderHeader(e); renderKpis(e); renderFlags(e); renderTrends(e);
+      renderHeader(e); renderKpis(e); renderFlags(e); renderTrends(e); ensureOfficial(e);
       renderView(e);
     }
   }
@@ -310,7 +456,7 @@
       const t = el("button", "tab" + (i === active && !home ? " active" : ""), esc(shortName(e.name)));
       t.onclick = () => { active = i; home = false; render(); };
       const x = el("span", "tab-x", "×");
-      x.onclick = ev => { ev.stopPropagation(); logs.splice(i, 1); if (active >= logs.length) active = logs.length - 1; if (!logs.length) home = true; render(); };
+      x.onclick = ev => { ev.stopPropagation(); clearOfficial(e.id); delete official[e.id]; logs.splice(i, 1); if (active >= logs.length) active = logs.length - 1; if (!logs.length) home = true; render(); };
       t.appendChild(x); tabs.appendChild(t);
     });
     const add = el("button", "tab tab-add", "+ Add log");

@@ -51,6 +51,19 @@ function raceWindow(r) {
   if (!isFinite(start) || !isFinite(end) || start < 0 || end <= start) return null;
   return { start, end, auto: r.auto !== false };
 }
+// One boat's official HRL line, once the league has posted the heat.
+function officialTime(o) {
+  if (!o || typeof o !== "object") return null;
+  const time = Number(o.time);
+  if (!isFinite(time) || time <= 0) return null;
+  const str = (v, n) => (v == null ? "" : String(v).slice(0, n));
+  return {
+    time, laps: Number(o.laps) || 0, position: Number(o.position) || 0,
+    heat: str(o.heat, 24), grp: str(o.grp, 64), points: str(o.points, 8),
+    penalty1: str(o.penalty1, 16), penalty2: str(o.penalty2, 16),
+    fetchedAt: Number(o.fetchedAt) || Date.now(),
+  };
+}
 // Validate the "lf3" magic (0x6c 0x66 0x33) within the first bytes.
 function hasMagic(bytes) {
   const n = Math.min(bytes.length - 3, 16);
@@ -340,6 +353,79 @@ async function handleInstagram(request, env, ctx, url) {
   return json({ error: "Not found" }, 404);
 }
 
+// ---------- official HRL results ----------
+// hrlhydroplane.com renders each event's results server-side as Elementor markup:
+// no public JSON, but every heat header and every boat row carries a stable
+// data-grpid="<date>-<class>-<heat>" (e.g. 2026-6-27-FormuleF-Q-1A). Anchor on
+// that, flatten the markup to text, and read the labelled fields. The page is
+// several MB, so the parsed rows are cached in R2 rather than refetched per poll.
+const HRL_BASE = "https://hrlhydroplane.com/en/site_de_course/";
+const HRL_CACHE_TTL = 10 * 60 * 1000;
+
+function hrlText(frag) {
+  return frag.replace(/<[^>]+>/g, "\n")
+    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'").replace(/&[a-z]+;/g, " ")
+    .split("\n").map(s => s.trim()).filter(Boolean);
+}
+
+function hrlParse(html) {
+  const marks = [], out = [];
+  const re = /<(h5|section)\b[^>]*data-grpid="([^"]+)"/g;
+  let m;
+  while ((m = re.exec(html))) marks.push({ tag: m[1], grp: m[2], i: m.index });
+  marks.forEach((mk, k) => {
+    if (mk.tag !== "section") return;
+    const end = k + 1 < marks.length ? marks[k + 1].i : html.length;
+    const t = hrlText(html.slice(mk.i, end));
+    const bi = t.findIndex(x => /^[A-Z]{1,3}\s*\d+\s*-\s*\S/.test(x));
+    if (bi < 0) return;
+    const bm = t[bi].match(/^([A-Z]{1,3})\s*(\d+)\s*-\s*(.+)$/);
+    const gm = mk.grp.match(/^(\d{4}-\d{1,2}-\d{1,2})-(.+)-([^-]+(?:-[^-]+)?)$/);
+    const after = lbl => { const i = t.findIndex(x => x.toLowerCase().indexOf(lbl) === 0); return i >= 0 ? t[i + 1] : null; };
+    const num = v => { const f = parseFloat(String(v).replace(",", ".")); return isFinite(f) ? f : null; };
+    out.push({
+      grp: mk.grp,
+      date: gm ? gm[1] : "", heat: mk.grp.replace(/^\d{4}-\d{1,2}-\d{1,2}-[^-]+-/, ""),
+      cls: bm[1], boat: bm[2], name: bm[3].trim(),
+      driver: (t[bi + 1] && !/^(time|completed|penalty|\d+\s*pts)/i.test(t[bi + 1])) ? t[bi + 1] : "",
+      position: num(t[0]), time: num(after("time (sec)")), laps: num(after("completed laps")),
+      penalty1: after("penalty 1"), penalty2: after("penalty 2"),
+      points: (t.find(x => /^\d+\s*PTS$/i.test(x)) || "").replace(/\s*PTS/i, ""),
+    });
+  });
+  return out;
+}
+
+async function hrlResults(site, env, fresh) {
+  const key = "hrl/" + site + ".json";
+  if (!fresh) {
+    const cached = await env.LOGS.get(key);
+    if (cached) {
+      const c = await cached.json().catch(() => null);
+      if (c && Date.now() - c.at < HRL_CACHE_TTL) return c.rows;
+      if (c) var stale = c.rows;   // keep as a fallback if the fetch fails
+    }
+  }
+  let html;
+  try {
+    const r = await fetch(HRL_BASE + site + "/", {
+      headers: { "user-agent": "HerrinChokerRacing/1.0 (+https://herrinchoker.ca)" },
+      cf: { cacheTtl: 300, cacheEverything: true },
+    });
+    if (!r.ok) throw new Error("HRL responded " + r.status);
+    html = await r.text();
+  } catch (e) {
+    if (typeof stale !== "undefined") return stale;
+    throw e;
+  }
+  const rows = hrlParse(html);
+  if (rows.length)
+    await env.LOGS.put(key, JSON.stringify({ at: Date.now(), rows }),
+      { httpMetadata: { contentType: "application/json" } });
+  return rows;
+}
+
 async function handleApi(request, env, url) {
   const path = url.pathname.replace(/^\/log\/api\/?/, "");   // "list" | "get/<id>" | "upload" | ...
   const method = request.method;
@@ -355,6 +441,25 @@ async function handleApi(request, env, url) {
     const idx = await readIndex(env);
     idx.sort((a, b) => (b.logTime || b.uploadedAt || 0) - (a.logTime || a.uploadedAt || 0));
     return json(idx);
+  }
+
+  // Official timing for one boat, scraped from HRL's public results page.
+  // Logs get uploaded straight after a heat, well before HRL posts anything, so
+  // "not there yet" is the normal case and answers 200 with status "pending" —
+  // the client retries on its own schedule rather than treating it as an error.
+  if (path === "hrl" && method === "GET") {
+    const site = String(url.searchParams.get("site") || "").toLowerCase().replace(/[^a-z0-9-]/g, "");
+    const date = String(url.searchParams.get("date") || "").replace(/[^0-9-]/g, "");
+    const cls = String(url.searchParams.get("cls") || "").replace(/[^A-Za-z]/g, "").toUpperCase();
+    const boat = String(url.searchParams.get("boat") || "").replace(/[^0-9]/g, "");
+    if (!site || !boat) return json({ error: "site and boat required" }, 400);
+    let rows;
+    try { rows = await hrlResults(site, env, url.searchParams.get("fresh") === "1"); }
+    catch (e) { return json({ status: "error", message: String(e.message || e) }); }
+    if (!rows) return json({ status: "error", message: "results page unavailable" });
+    const heats = rows.filter(r => r.boat === boat
+      && (!cls || r.cls === cls) && (!date || r.date === date));
+    return json(heats.length ? { status: "ok", heats } : { status: "pending", scanned: rows.length });
   }
 
   if (path.startsWith("get/") && method === "GET") {
@@ -388,7 +493,8 @@ async function handleApi(request, env, url) {
       id, name: meta.name || id, title: meta.title || "", ecu: meta.ecu || "", serial: meta.serial || "",
       duration: meta.duration || 0, channels: meta.channels || 0, logTime: meta.logTime || null,
       cls: meta.cls || { group: "testing", auto: true }, note: meta.note || "",
-      race: raceWindow(meta.race), stats: meta.stats || {}, uploadedAt: Date.now(),
+      race: raceWindow(meta.race), official: officialTime(meta.official),
+      stats: meta.stats || {}, uploadedAt: Date.now(),
     };
     const idx = await readIndex(env);
     const next = idx.filter(e => e.id !== id);   // overwrite same id (de-dupe)
@@ -408,6 +514,7 @@ async function handleApi(request, env, url) {
     if (body.cls !== undefined) e.cls = body.cls;
     if (body.note !== undefined) e.note = body.note;
     if (body.race !== undefined) e.race = raceWindow(body.race);
+    if (body.official !== undefined) e.official = officialTime(body.official);
     if (body.stats !== undefined && body.stats && typeof body.stats === "object") e.stats = body.stats;
     await writeIndex(env, idx);
     return json({ ok: true });

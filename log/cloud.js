@@ -61,8 +61,20 @@
   const update = (id, patch) => post("update", Object.assign({ id }, patch));
   const remove = id => post("delete", { id });
 
+  // Official HRL timing for one boat on one race day.
+  // → { status: "ok", heats } | { status: "pending" } | { status: "error", message }
+  async function hrlTime(q) {
+    const p = new URLSearchParams(q);
+    try {
+      const r = await fetch(BASE + "hrl?" + p, { cache: "no-store", headers: auth() });
+      if (r.status === 401) return { status: "error", message: "passcode" };
+      if (!r.ok) return { status: "error", message: "HTTP " + r.status };
+      return await r.json();
+    } catch (e) { return { status: "error", message: "offline" }; }
+  }
+
   global.Cloud = {
-    list, upload, update, remove, fileUrl, fetchFile,
+    list, upload, update, remove, fileUrl, fetchFile, hrlTime,
     key, setKey, hasKey, isOnline: () => online,
   };
 })(window);

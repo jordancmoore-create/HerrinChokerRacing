@@ -137,7 +137,10 @@
     return out;
   }
 
-  // `saved` is a stored { start, end } window (a hand-placed one wins over auto-detect)
+  // `saved` is a stored { start, end, logDur } window (a hand-placed one wins over
+  // auto-detect). A window saved against a different log duration — one stored
+  // before the timebase was rebuilt from the sample rate — is rescaled onto the
+  // current one rather than sitting ~2 % off where the team left it.
   function segment(log, saved) {
     const out = { start: 0, raceStart: 0, raceEnd: 0, lap: 0, nLaps: 0, corner: 0,
       turns: [], bounds: [], auto: true };
@@ -146,8 +149,11 @@
     const g = hold(rpm, log.duration);
     for (let i = 0; i < g.length; i++) if (g[i] > 1500) { out.start = i * GDT; break; }
     let a, b;
-    if (saved && saved.end > saved.start) { a = saved.start; b = saved.end; out.auto = false; }
-    else { const w = raceWindow(log); a = w[0]; b = w[1]; }
+    if (saved && saved.end > saved.start) {
+      const k = (saved.logDur > 0 && Math.abs(saved.logDur - log.duration) > 0.5)
+        ? log.duration / saved.logDur : 1;
+      a = saved.start * k; b = saved.end * k; out.auto = false;
+    } else { const w = raceWindow(log); a = w[0]; b = w[1]; }
     return setWindow(log, out, a, b);
   }
 
